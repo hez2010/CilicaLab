@@ -27,14 +27,14 @@ public sealed class LabCompiler(FrameworkReferences references)
             .Where(diagnostic => diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning)
             .Select(ToDiagnostic).ToArray();
         if (!emitted.Success) {
-            return new CompilationOutput(diagnostics, [], [], null, null, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            return new CompilationOutput(diagnostics, [], null, null, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
 
         string inputPath = Path.Combine(references.DirectoryPath, "CilicaLab.Snippet.dll");
         byte[] originalAssembly = image.ToArray();
         File.WriteAllBytes(inputPath, originalAssembly);
 
-        var logger = new LabLogger();
+        var logger = new VoidLogger();
         using var resolver = new ModuleResolver(logger);
         resolver.AddSearchPaths([references.DirectoryPath]);
         var module = resolver.Load(inputPath);
@@ -58,7 +58,7 @@ public sealed class LabCompiler(FrameworkReferences references)
 
         using var output = new MemoryStream();
         module.Save(output, null, "CilicaLab.Snippet.dll");
-        return new CompilationOutput(diagnostics, methods, logger.Messages, originalAssembly, output.ToArray(), Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        return new CompilationOutput(diagnostics, methods, originalAssembly, output.ToArray(), Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
 
     public DecompiledOutput Decompile(byte[] originalAssembly, byte[] optimizedAssembly)
@@ -75,16 +75,4 @@ public sealed class LabCompiler(FrameworkReferences references)
             span.EndLinePosition.Line + 1, span.EndLinePosition.Character + 1);
     }
 
-    private sealed class LabLogger : ICompilationLogger
-    {
-        public List<string> Messages { get; } = [];
-        public Cilica.LogLevel MinLevel => Cilica.LogLevel.Warn;
-        public bool IsEnabled(Cilica.LogLevel level) => level >= MinLevel;
-        public void Log(Cilica.LogLevel level, ReadOnlySpan<char> message, Exception? exception = null)
-        {
-            if (IsEnabled(level)) Messages.Add($"{level}: {message}" + (exception == null ? "" : $"\n{exception.Message}"));
-        }
-        public LoggerScopeHandle Push(in LoggerScopeInfo info, string? message = null) => default;
-        public void Pop(in LoggerScopeHandle scope) { }
-    }
 }

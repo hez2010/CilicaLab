@@ -130,13 +130,6 @@ kbd { font: 10px "Segoe UI", sans-serif; opacity: .7; margin-left: 13px; }
 .error-notice span { display: block; }
 .app-footer { min-height: 48px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; color: #788b9b; font-size: 10px; }
 .app-footer a { color: #a3b6c5; }
-.diagnostics { margin-top: 14px; border: 1px solid var(--border); border-radius: 6px; background: #171f27; padding: 12px 15px; font-size: 12px; }
-.diagnostics summary { color: #bccbd6; }
-.diagnostics .tab-count { margin-left: 7px; }
-.diagnostics pre { white-space: pre-wrap; font-size: 11px; overflow-wrap: anywhere; color: #dfc090; }
-.diagnostic { display: flex; gap: 12px; text-align: left; width: 100%; padding: 10px 0; background: none; border: 0; color: #dfc090; font-size: 11px; }
-.diagnostic-error { color: #f1a1aa; overflow-wrap: anywhere; }
-.diagnostic > span:first-child { font-family: Consolas, monospace; }
 .boot-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
 .boot-screen h1 { font-size: 30px; font-weight: 600; margin: 0; }
 .boot-screen h1 span { font-weight: 350; }
@@ -189,7 +182,6 @@ kbd { font: 10px "Segoe UI", sans-serif; opacity: .7; margin-left: 13px; }
     .pass-item.selected { border-bottom-color: var(--accent); }
     .pass-legend { display: none; }
     .settings-panel { left: auto; right: 0; }
-    .diagnostic { gap: 7px; flex-wrap: wrap; }
     .diff-footer { font-size: 9px; }
     .graph-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
     .graph-panel + .graph-panel { border-left: 0; border-top: 1px solid var(--border); }

@@ -148,19 +148,6 @@
             </section>
         </div>
 
-        @if (_error != null || _output?.Diagnostics.Count > 0 || _output?.Messages.Count > 0) {
-            <details class="diagnostics" open>
-                <summary>Diagnostics <span class="tab-count">@((_output?.Diagnostics.Count ?? 0) + (_output?.Messages.Count ?? 0) + (_error == null ? 0 : 1))</span></summary>
-                @if (_error != null) { <p class="diagnostic-error">@_error</p> }
-                @if (_output != null) {
-                    @foreach (var diagnostic in _output.Diagnostics) {
-                        <button class="diagnostic @(diagnostic.Severity == "Error" ? "diagnostic-error" : "")" @onclick="() => RevealDiagnosticAsync(diagnostic)"><span>@diagnostic.Id</span><span>(@diagnostic.Line,@diagnostic.Column)</span><span>@diagnostic.Message</span></button>
-                    }
-                    @foreach (var message in _output.Messages) { <pre>@message</pre> }
-                }
-            </details>
-        }
-
         <footer class="app-footer">
             <span class="run-summary" role="status">@RunSummary</span>
             <span>Powered by <a href="https://www.nuget.org/packages/Cilica.Core" target="_blank" rel="noopener noreferrer">Cilica</a></span>

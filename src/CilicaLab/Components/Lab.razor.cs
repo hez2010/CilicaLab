@@ -185,9 +185,6 @@ public partial class Lab
         }
     }
 
-    private async Task RevealDiagnosticAsync(SourceDiagnostic diagnostic)
-        => await _editor!.InvokeVoidAsync("reveal", diagnostic.Line, diagnostic.Column);
-
     private async Task ZoomGraphAsync(bool before, double factor)
         => await _editor!.InvokeVoidAsync("zoomGraph", before ? _beforeGraphElement : _afterGraphElement, factor);
 

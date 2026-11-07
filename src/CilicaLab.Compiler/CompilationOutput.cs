@@ -26,7 +26,6 @@ public sealed record MethodOutput(
 public sealed record CompilationOutput(
     IReadOnlyList<SourceDiagnostic> Diagnostics,
     IReadOnlyList<MethodOutput> Methods,
-    IReadOnlyList<string> Messages,
     byte[]? OriginalAssembly,
     byte[]? Assembly,
     double Milliseconds)

@@ -26,7 +26,7 @@ Open `http://localhost:5188`. The development host serves the app's static asset
 
 Each control-flow graph has independent zoom controls and a **Fit** button. Ctrl+wheel or Cmd+wheel zooms around the pointer, and scrollbars let you explore larger graphs. Graphs fit their panes automatically until you choose a manual zoom level.
 
-**Options** controls Roslyn's Release optimization, Cilica method inlining, and cross-assembly optimization. Edits and option changes mark the displayed results as outdated until the next compilation. Source diagnostics link back to the editor. If Cilica cannot transform a method, its diagnostic is shown and its original IL is retained in the output assembly.
+**Options** controls Roslyn's Release optimization, Cilica method inlining, and cross-assembly optimization. Edits and option changes mark the displayed results as outdated until the next compilation. Source diagnostics appear in the editor. If Cilica cannot transform a method, its diagnostic is shown and its original IL is retained in the output assembly.
 
 The examples cover algebraic simplification, inlining, loop vectorization, LINQ expansion, scalar replacement, and repeated loads.
 

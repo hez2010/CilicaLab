@@ -140,11 +140,6 @@ export function setDiagnostics(diagnostics) {
         endLineNumber: diagnostic.endLine, endColumn: diagnostic.endColumn
     })));
 }
-export function reveal(lineNumber, column) {
-    sourceEditor.revealLineInCenter(lineNumber);
-    sourceEditor.setPosition({ lineNumber, column });
-    sourceEditor.focus();
-}
 export function nextFrame() { return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0))); }
 export async function showGraphs(beforeElement, afterElement, before, after) {
     if (!before && !after) {
