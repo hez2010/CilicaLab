@@ -9,6 +9,8 @@
     <title>Cilica Lab</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="preload" id="webassembly" />
+    <script type="importmap"></script>
 </head>
 <body>
     <div id="app">
@@ -21,6 +23,6 @@
     </div>
     <div id="blazor-error-ui" role="alert">The app encountered an error. <a href="./">Reload the lab</a><button class="dismiss" aria-label="Dismiss error">×</button></div>
     <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/loader.js"></script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 </html>

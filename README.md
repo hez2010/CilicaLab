@@ -14,6 +14,12 @@ dotnet run --project src/CilicaLab
 
 Open `http://localhost:5188`. The development host serves the app's static assets; Roslyn and Cilica run in your browser. The first load downloads the compiler and .NET assemblies.
 
+For hot reload:
+
+```sh
+dotnet watch --project src/CilicaLab run
+```
+
 ## Explore a compilation
 
 1. Choose an example or edit the C# source. The editor keeps your latest source in browser local storage when storage is available.

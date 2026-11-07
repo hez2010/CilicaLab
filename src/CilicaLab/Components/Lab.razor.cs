@@ -50,7 +50,7 @@ public partial class Lab
     {
         if (!firstRender) return;
         try {
-            _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.js");
+            _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.mjs");
             _callback = DotNetObjectReference.Create(this);
             string source = await _editor.InvokeAsync<string>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement, Samples.All[0].Source, _callback);
             if (source != Samples.All[0].Source) _sampleId = "custom";

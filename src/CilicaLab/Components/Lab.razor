@@ -40,7 +40,7 @@
         <div class="workspace" aria-busy="@(_busy ? "true" : "false")" @ref="_workspaceElement">
             <section class="source-panel panel" aria-label="C# source">
                 <div class="panel-heading">
-                    <span class="file-label"><span class="language-badge">C#</span> Snippet.cs</span>
+                    <span class="file-label"><span class="language-badge">C#</span> Code Editor</span>
                 </div>
                 <div class="editor-host source-editor" @ref="_sourceElement"></div>
                 <div class="panel-footer"><span class="status-dot"></span> Your code stays in this browser <span class="source-state">@(_dirty ? "Modified" : "")</span></div>
@@ -49,25 +49,6 @@
             <div class="workspace-splitter" role="separator" tabindex="0" aria-label="Resize source and results" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="65" aria-valuenow="32" @ref="_splitterElement"><span></span></div>
 
             <section class="output-panel panel" aria-label="Compiler output">
-                @if (!IsCSharpView) {
-                <div class="output-toolbar">
-                    <div class="method-picker">
-                        <label for="method">METHOD</label>
-                        <select id="method" value="@_methodIndex" @onchange="ChangeMethodAsync" disabled="@(_busy || _output?.Methods.Count is not > 0)">
-                            @if (_output?.Methods.Count is not > 0) { <option value="-1">Compile to explore methods</option> }
-                            @if (_output != null) {
-                                @for (int i = 0; i < _output.Methods.Count; i++) {
-                                    <option value="@i">@_output.Methods[i].Signature</option>
-                                }
-                            }
-                        </select>
-                    </div>
-                    @if (SelectedMethod is { } selected) {
-                        <span class="method-status @(selected.Error == null ? "" : "failed")">@selected.Status</span>
-                    }
-                </div>
-                }
-
                 <div class="view-tabs" role="tablist" aria-label="Output view">
                     <button id="passes-tab" role="tab" aria-selected="@(IsPassView ? "true" : "false")" aria-controls="output-view" class="@(IsPassView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.Passes)" disabled="@_busy">Pass transformations <span class="tab-count">@(SelectedMethod?.Passes.Count ?? 0)</span></button>
                     <button id="il-tab" role="tab" aria-selected="@(IsILView ? "true" : "false")" aria-controls="output-view" class="@(IsILView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.IL)" disabled="@_busy">Generated IL</button>
@@ -77,71 +58,92 @@
                     }
                 </div>
 
-                @if (_dirty && _output != null) {
-                    <div class="notice">Source or options changed. Compile again to update these results.</div>
-                }
-                @if (!IsCSharpView && SelectedMethod?.Error is { } methodError) {
-                    <div class="error-notice" role="alert">@methodError <span>The original IL is retained for this method.</span></div>
-                }
-
-                @if (IsPassView) {
-                    <div class="pass-display"><label for="pass-display">View</label><select id="pass-display" @bind="_passDisplay" @bind:after="RenderViewAsync" disabled="@_busy"><option value="@PassDisplay.IR">IR diff</option><option value="@PassDisplay.Graphviz">Graphviz CFG</option></select></div>
-                }
-
-                <div id="output-view" class="inspector @(!IsPassView ? "il-view" : "")" role="tabpanel" aria-labelledby="@(IsCSharpView ? "csharp-tab" : IsILView ? "il-tab" : "passes-tab")">
-                    <nav class="pass-sidebar" aria-label="Optimization passes" hidden="@(!IsPassView)">
-                        <div class="pass-filter"><label><input type="checkbox" @bind="_changedOnly" @bind:after="FilterPassesAsync" disabled="@_busy" /> Changed only</label></div>
-                        <div class="pass-list">
-                            @foreach (var pass in VisiblePasses) {
-                                <button class="pass-item @(pass.Number - 1 == _passIndex ? "selected" : "")" aria-current="@(pass.Number - 1 == _passIndex ? "step" : null)" @onclick="() => SelectPassAsync(pass.Number - 1)" disabled="@_busy">
-                                    <span class="pass-number">@pass.Number.ToString("00")</span>
-                                    <span class="pass-name">@pass.Name</span>
-                                    <span class="pass-dot @(pass.Error != null ? "error" : pass.Changed ? "changed" : "")" title="@(pass.Error != null ? "Failed" : pass.Changed ? "Changed" : "Unchanged")"></span>
-                                </button>
-                            }
-                            @if (SelectedMethod != null && !VisiblePasses.Any()) {
-                                <p class="sidebar-empty">@(_changedOnly ? "No changed passes." : "No passes ran for this method.")</p>
-                            }
-                        </div>
-                        <div class="pass-legend"><span class="pass-dot changed"></span> Changed <span class="pass-dot"></span> Unchanged</div>
-                    </nav>
-
-                    <div class="diff-panel">
-                        <div class="diff-heading" hidden="@ShowGraphs">
-                            <span><span class="diff-minus">−</span> @(IsCSharpView ? "Original assembly" : IsILView ? "Roslyn IL" : "Before pass")</span>
-                            <span><span class="diff-plus">+</span> @(IsCSharpView ? "Optimized assembly" : IsILView ? (SelectedMethod?.Error != null ? "Retained IL" : "Cilica IL") : "After pass")</span>
-                        </div>
-                        <div class="diff-editor-container">
-                            <div class="editor-host diff-editor" @ref="_diffElement" hidden="@ShowGraphs"></div>
-                            <div class="graph-grid" hidden="@(!ShowGraphs)">
-                                <section class="graph-panel">
-                                    <div class="graph-heading"><span>Before pass</span><output aria-label="Before graph zoom"></output><button title="Zoom out" aria-label="Zoom out before graph" @onclick="() => ZoomGraphAsync(true, 0.8)">−</button><button title="Fit graph" aria-label="Fit before graph" @onclick="() => FitGraphAsync(true)">Fit</button><button title="Zoom in" aria-label="Zoom in before graph" @onclick="() => ZoomGraphAsync(true, 1.25)">+</button></div>
-                                    <div class="graph-canvas" aria-label="Control-flow graph before pass" @ref="_beforeGraphElement"></div>
-                                </section>
-                                <section class="graph-panel">
-                                    <div class="graph-heading"><span>After pass</span><output aria-label="After graph zoom"></output><button title="Zoom out" aria-label="Zoom out after graph" @onclick="() => ZoomGraphAsync(false, 0.8)">−</button><button title="Fit graph" aria-label="Fit after graph" @onclick="() => FitGraphAsync(false)">Fit</button><button title="Zoom in" aria-label="Zoom in after graph" @onclick="() => ZoomGraphAsync(false, 1.25)">+</button></div>
-                                    <div class="graph-canvas" aria-label="Control-flow graph after pass" @ref="_afterGraphElement"></div>
-                                </section>
+                <div id="output-view" class="output-tabpanel" role="tabpanel" aria-labelledby="@(IsCSharpView ? "csharp-tab" : IsILView ? "il-tab" : "passes-tab")">
+                    @if (!IsCSharpView) {
+                        <div class="output-toolbar">
+                            <div class="method-picker">
+                                <label for="method">METHOD</label>
+                                <select id="method" value="@_methodIndex" @onchange="ChangeMethodAsync" disabled="@(_busy || _output?.Methods.Count is not > 0)">
+                                    @if (_output?.Methods.Count is not > 0) { <option value="-1">Compile to explore methods</option> }
+                                    @if (_output != null) {
+                                        @for (int i = 0; i < _output.Methods.Count; i++) {
+                                            <option value="@i">@_output.Methods[i].Signature</option>
+                                        }
+                                    }
+                                </select>
                             </div>
-                            @if (_busy || OutputMissing || _viewError != null) {
-                                <div class="empty-state" role="status">
-                                    <span class="empty-symbol">@(_busy ? "◌" : "{ }")</span>
-                                    <strong>@(_busy ? _status : _viewError != null ? "Unable to display this view" : _error != null ? "Unable to compile" : _output?.Diagnostics.Any(diagnostic => diagnostic.Severity == "Error") == true ? "Check your C# source" : SelectedMethod == null ? "Your compilation, step by step" : "No transformations to display")</strong>
-                                    <span>@(_busy ? "Running locally in WebAssembly." : _viewError ?? _error ?? "Compile a snippet, choose a method, and inspect its transformation.")</span>
-                                </div>
+                            @if (SelectedMethod is { } selected) {
+                                <span class="method-status @(selected.Error == null ? "" : "failed")">@selected.Status</span>
                             }
                         </div>
-                        <div class="diff-footer">
-                            @if (IsCSharpView) {
-                                <span>ILSpy · decompiled C# · whole assembly</span>
-                            } else if (IsILView) {
-                                <span>Managed IL · before and after the full pipeline</span>
-                            } else if (SelectedPass is { } current) {
-                                <span><strong>@current.Name</strong> · @(current.Error != null ? "Failed" : current.Changed ? "Changed" : "Unchanged")</span>
-                                <span>@current.Milliseconds.ToString("0.00") ms</span>
-                            } else {
-                                <span>Choose a pass to inspect its IR.</span>
-                            }
+                    }
+
+                    @if (_dirty && _output != null) {
+                        <div class="notice">Source or options changed. Compile again to update these results.</div>
+                    }
+                    @if (!IsCSharpView && SelectedMethod?.Error is { } methodError) {
+                        <div class="error-notice" role="alert">@methodError <span>The original IL is retained for this method.</span></div>
+                    }
+
+                    @if (IsPassView) {
+                        <div class="pass-display"><label for="pass-display">View</label><select id="pass-display" @bind="_passDisplay" @bind:after="RenderViewAsync" disabled="@_busy"><option value="@PassDisplay.IR">IR diff</option><option value="@PassDisplay.Graphviz">Graphviz CFG</option></select></div>
+                    }
+
+                    <div class="inspector @(!IsPassView ? "il-view" : "")">
+                        <nav class="pass-sidebar" aria-label="Optimization passes" hidden="@(!IsPassView)">
+                            <div class="pass-filter"><label><input type="checkbox" @bind="_changedOnly" @bind:after="FilterPassesAsync" disabled="@_busy" /> Changed only</label></div>
+                            <div class="pass-list">
+                                @foreach (var pass in VisiblePasses) {
+                                    <button class="pass-item @(pass.Number - 1 == _passIndex ? "selected" : "")" aria-current="@(pass.Number - 1 == _passIndex ? "step" : null)" @onclick="() => SelectPassAsync(pass.Number - 1)" disabled="@_busy">
+                                        <span class="pass-number">@pass.Number.ToString("00")</span>
+                                        <span class="pass-name">@pass.Name</span>
+                                        <span class="pass-dot @(pass.Error != null ? "error" : pass.Changed ? "changed" : "")" title="@(pass.Error != null ? "Failed" : pass.Changed ? "Changed" : "Unchanged")"></span>
+                                    </button>
+                                }
+                                @if (SelectedMethod != null && !VisiblePasses.Any()) {
+                                    <p class="sidebar-empty">@(_changedOnly ? "No changed passes." : "No passes ran for this method.")</p>
+                                }
+                            </div>
+                            <div class="pass-legend"><span class="pass-dot changed"></span> Changed <span class="pass-dot"></span> Unchanged</div>
+                        </nav>
+
+                        <div class="diff-panel">
+                            <div class="diff-heading" hidden="@ShowGraphs">
+                                <span><span class="diff-minus">−</span> @(IsCSharpView ? "Original assembly" : IsILView ? "Roslyn IL" : "Before pass")</span>
+                                <span><span class="diff-plus">+</span> @(IsCSharpView ? "Optimized assembly" : IsILView ? (SelectedMethod?.Error != null ? "Retained IL" : "Cilica IL") : "After pass")</span>
+                            </div>
+                            <div class="diff-editor-container">
+                                <div class="editor-host diff-editor" @ref="_diffElement" hidden="@ShowGraphs"></div>
+                                <div class="graph-grid" hidden="@(!ShowGraphs)">
+                                    <section class="graph-panel">
+                                        <div class="graph-heading"><span>Before pass</span><output aria-label="Before graph zoom"></output><button title="Zoom out" aria-label="Zoom out before graph" @onclick="() => ZoomGraphAsync(true, 0.8)">−</button><button title="Fit graph" aria-label="Fit before graph" @onclick="() => FitGraphAsync(true)">Fit</button><button title="Zoom in" aria-label="Zoom in before graph" @onclick="() => ZoomGraphAsync(true, 1.25)">+</button></div>
+                                        <div class="graph-canvas" aria-label="Control-flow graph before pass" @ref="_beforeGraphElement"></div>
+                                    </section>
+                                    <section class="graph-panel">
+                                        <div class="graph-heading"><span>After pass</span><output aria-label="After graph zoom"></output><button title="Zoom out" aria-label="Zoom out after graph" @onclick="() => ZoomGraphAsync(false, 0.8)">−</button><button title="Fit graph" aria-label="Fit after graph" @onclick="() => FitGraphAsync(false)">Fit</button><button title="Zoom in" aria-label="Zoom in after graph" @onclick="() => ZoomGraphAsync(false, 1.25)">+</button></div>
+                                        <div class="graph-canvas" aria-label="Control-flow graph after pass" @ref="_afterGraphElement"></div>
+                                    </section>
+                                </div>
+                                @if (_busy || OutputMissing || _viewError != null) {
+                                    <div class="empty-state" role="status">
+                                        <span class="empty-symbol">@(_busy ? "◌" : "{ }")</span>
+                                        <strong>@(_busy ? _status : _viewError != null ? "Unable to display this view" : _error != null ? "Unable to compile" : _output?.Diagnostics.Any(diagnostic => diagnostic.Severity == "Error") == true ? "Check your C# source" : SelectedMethod == null ? "Your compilation, step by step" : "No transformations to display")</strong>
+                                        <span>@(_busy ? "Running locally in WebAssembly." : _viewError ?? _error ?? "Compile a snippet, choose a method, and inspect its transformation.")</span>
+                                    </div>
+                                }
+                            </div>
+                            <div class="diff-footer">
+                                @if (IsCSharpView) {
+                                    <span>ILSpy · decompiled C# · whole assembly</span>
+                                } else if (IsILView) {
+                                    <span>Managed IL · before and after the full pipeline</span>
+                                } else if (SelectedPass is { } current) {
+                                    <span><strong>@current.Name</strong> · @(current.Error != null ? "Failed" : current.Changed ? "Changed" : "Unchanged")</span>
+                                    <span>@current.Milliseconds.ToString("0.00") ms</span>
+                                } else {
+                                    <span>Choose a pass to inspect its IR.</span>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>

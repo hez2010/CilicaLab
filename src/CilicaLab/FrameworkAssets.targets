@@ -5,13 +5,14 @@
     </ItemGroup>
     <PropertyGroup>
       <_LabFrameworkDirectory>$(IntermediateOutputPath)lab-framework/</_LabFrameworkDirectory>
-      <_LabFrameworkArchive>$(IntermediateOutputPath)framework.zip</_LabFrameworkArchive>
+      <_LabFrameworkAssetRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'lab-assets'))</_LabFrameworkAssetRoot>
+      <_LabFrameworkArchive>$(_LabFrameworkAssetRoot)references/framework.zip</_LabFrameworkArchive>
     </PropertyGroup>
   </Target>
   <Target Name="PackLabFrameworkAssemblies" DependsOnTargets="CollectLabFrameworkAssemblies"
           Inputs="@(_LabFrameworkAssembly);$(MSBuildThisFileFullPath)" Outputs="$(_LabFrameworkArchive)">
     <RemoveDir Directories="$(_LabFrameworkDirectory)" />
-    <MakeDir Directories="$(_LabFrameworkDirectory)" />
+    <MakeDir Directories="$(_LabFrameworkDirectory);$(_LabFrameworkAssetRoot)references" />
     <Copy SourceFiles="@(_LabFrameworkAssembly)" DestinationFolder="$(_LabFrameworkDirectory)" SkipUnchangedFiles="true" />
     <ZipDirectory SourceDirectory="$(_LabFrameworkDirectory)" DestinationFile="$(_LabFrameworkArchive)" Overwrite="true" />
     <ItemGroup>
@@ -20,7 +21,21 @@
   </Target>
   <Target Name="AddLabFrameworkAssets" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="PackLabFrameworkAssemblies">
     <ItemGroup>
-      <Content Include="$(_LabFrameworkArchive)" Link="wwwroot/references/framework.zip" CopyToPublishDirectory="PreserveNewest" />
+      <_LabFrameworkAssetCandidate Include="$(_LabFrameworkArchive)" RelativePath="references/framework.zip" />
+    </ItemGroup>
+    <DefineStaticWebAssets CandidateAssets="@(_LabFrameworkAssetCandidate)"
+                          SourceType="Computed" SourceId="$(PackageId)"
+                          ContentRoot="$(_LabFrameworkAssetRoot)" BasePath="$(StaticWebAssetBasePath)"
+                          AssetKind="All" AssetMode="CurrentProject" AssetRole="Primary"
+                          CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest">
+      <Output TaskParameter="Assets" ItemName="_LabFrameworkStaticWebAsset" />
+    </DefineStaticWebAssets>
+    <DefineStaticWebAssetEndpoints CandidateAssets="@(_LabFrameworkStaticWebAsset)"
+                                  ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+    <ItemGroup>
+      <StaticWebAsset Include="@(_LabFrameworkStaticWebAsset)" />
     </ItemGroup>
   </Target>
 </Project>
