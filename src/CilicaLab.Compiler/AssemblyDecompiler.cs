@@ -2,6 +2,7 @@ using System.Reflection.PortableExecutable;
 
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
+using ICSharpCode.Decompiler.CSharp.OutputVisitor;
 using ICSharpCode.Decompiler.Metadata;
 
 namespace CilicaLab.Compiler;
@@ -13,7 +14,32 @@ internal sealed class AssemblyDecompiler(string referenceDirectory) : IAssemblyR
     public string Decompile(byte[] assembly)
     {
         using var file = new PEFile("CilicaLab.Snippet.dll", new MemoryStream(assembly, writable: false), PEStreamOptions.PrefetchEntireImage);
-        var decompiler = new CSharpDecompiler(file, this, new DecompilerSettings());
+        var formatting = FormattingOptionsFactory.CreateAllman();
+        formatting.IndentationString = "    ";
+        formatting.MinimumBlankLinesBetweenTypes = 1;
+
+        // SharpLab's lowered C# profile keeps compiler-generated members visible.
+        // https://github.com/ashmind/SharpLab/blob/main/source/Server/Decompilation/CSharpDecompiler.cs
+        var settings = new DecompilerSettings(LanguageVersion.CSharp1) {
+            ArrayInitializers = false,
+            AutomaticEvents = false,
+            DecimalConstants = false,
+            FixedBuffers = false,
+            UsingStatement = false,
+            SwitchStatementOnString = false,
+            LockStatement = false,
+            ForStatement = false,
+            ForEachStatement = false,
+            SparseIntegerSwitch = false,
+            DoWhileStatement = false,
+            StringConcat = false,
+            UseRefLocalsForAccurateOrderOfEvaluation = true,
+            InitAccessors = true,
+            FunctionPointers = true,
+            NativeIntegers = true,
+            CSharpFormattingOptions = formatting
+        };
+        var decompiler = new CSharpDecompiler(file, this, settings);
         return decompiler.DecompileWholeModuleAsString();
     }
 

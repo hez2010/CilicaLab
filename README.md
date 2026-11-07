@@ -26,7 +26,7 @@ dotnet watch --project src/CilicaLab run
 2. Select **Compile & optimize**, or press **Ctrl+Enter** (**Cmd+Enter** on macOS) in the editor.
 3. Choose a method, including an overload, constructor, or compiler-generated method.
 4. Select a pass to compare its input and output IR. Each invocation appears separately, including repeated passes and passes that leave the method unchanged. **Changed only** filters the timeline. Choose **Graphviz CFG** to render the control-flow graphs before and after that pass.
-5. Open **Generated IL** to compare Roslyn's IL with Cilica's emitted IL, or **ILSpy C#** to compare decompiled C# for the original and optimized assemblies. ILSpy decompilation runs on demand and covers the whole assembly. **Download DLL** saves the resulting assembly.
+5. Open **Generated IL** to compare Roslyn's IL with Cilica's emitted IL, or **ILSpy C#** to compare decompiled C# for the original and optimized assemblies. ILSpy decompilation runs on demand and covers the whole assembly, exposing compiler-generated types, backing fields, and state machines. **Download DLL** saves the resulting assembly.
 
 **Split view** switches between side-by-side and inline code diffs. Drag the divider between the source and results to resize the desktop workspace, or focus it and use the Left/Right arrow keys. Home and End move it to its minimum and maximum positions.
 
