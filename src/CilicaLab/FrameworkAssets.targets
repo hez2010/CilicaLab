@@ -1,0 +1,26 @@
+<Project>
+  <Target Name="CollectLabFrameworkAssemblies" DependsOnTargets="ResolveFrameworkReferences;ResolveRuntimePackAssets">
+    <ItemGroup>
+      <_LabFrameworkAssembly Include="@(RuntimePackAsset)" Condition="'%(Extension)' == '.dll'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_LabFrameworkDirectory>$(IntermediateOutputPath)lab-framework/</_LabFrameworkDirectory>
+      <_LabFrameworkArchive>$(IntermediateOutputPath)framework.zip</_LabFrameworkArchive>
+    </PropertyGroup>
+  </Target>
+  <Target Name="PackLabFrameworkAssemblies" DependsOnTargets="CollectLabFrameworkAssemblies"
+          Inputs="@(_LabFrameworkAssembly);$(MSBuildThisFileFullPath)" Outputs="$(_LabFrameworkArchive)">
+    <RemoveDir Directories="$(_LabFrameworkDirectory)" />
+    <MakeDir Directories="$(_LabFrameworkDirectory)" />
+    <Copy SourceFiles="@(_LabFrameworkAssembly)" DestinationFolder="$(_LabFrameworkDirectory)" SkipUnchangedFiles="true" />
+    <ZipDirectory SourceDirectory="$(_LabFrameworkDirectory)" DestinationFile="$(_LabFrameworkArchive)" Overwrite="true" />
+    <ItemGroup>
+      <FileWrites Include="$(_LabFrameworkArchive);@(_LabFrameworkAssembly->'$(_LabFrameworkDirectory)%(Filename)%(Extension)')" />
+    </ItemGroup>
+  </Target>
+  <Target Name="AddLabFrameworkAssets" BeforeTargets="ResolveProjectStaticWebAssets" DependsOnTargets="PackLabFrameworkAssemblies">
+    <ItemGroup>
+      <Content Include="$(_LabFrameworkArchive)" Link="wwwroot/references/framework.zip" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

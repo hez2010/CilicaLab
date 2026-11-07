@@ -1,0 +1,169 @@
+@implements IAsyncDisposable
+
+<PageTitle>Cilica Lab · Explore the optimizer</PageTitle>
+
+<div class="lab-shell">
+    <header class="app-header">
+        <a class="brand" href="./" aria-label="Cilica Lab home">
+            <svg width="30" height="32" viewBox="0 0 30 32" fill="none" aria-hidden="true">
+                <path d="M15 2 28 9.5v13L15 30 2 22.5v-13L15 2Z" stroke="currentColor" stroke-width="1.5" />
+                <path d="m15 9 7 4v7l-7 4-7-4v-7l7-4Z" fill="currentColor" />
+            </svg>
+            <span>Cilica <span class="brand-light">Lab</span></span>
+            <span class="version-badge">@($"v{CilicaVersion}")</span>
+        </a>
+        <a class="repository-link" href="https://github.com/hez2010/CilicaLab" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+        <div class="toolbar">
+            <div class="sample-picker">
+                <label for="sample">EXAMPLE</label>
+                <select id="sample" value="@_sampleId" @onchange="ChangeSampleAsync" disabled="@_busy">
+                    @if (_sampleId == "custom") { <option value="custom">Custom code</option> }
+                    @foreach (var sample in Samples.All) { <option value="@sample.Id">@sample.Name</option> }
+                </select>
+            </div>
+            <details class="settings">
+                <summary>Options <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
+                <div class="settings-panel">
+                    <label><input type="checkbox" @bind="_release" @bind:after="OptionsChanged" disabled="@_busy" /> Roslyn Release optimization</label>
+                    <label><input type="checkbox" @bind="_inlining" @bind:after="OptionsChanged" disabled="@_busy" /> Method inlining</label>
+                    <label><input type="checkbox" @bind="_crossAssembly" @bind:after="OptionsChanged" disabled="@_busy" /> Cross-assembly optimization</label>
+                </div>
+            </details>
+            <span class="toolbar-space"></span>
+            <button class="button secondary download-button" @onclick="DownloadAssemblyAsync" disabled="@(_busy || _dirty || _output?.Assembly == null)"><span aria-hidden="true">↓</span> Download DLL</button>
+            <button class="button primary" @onclick="CompileAsync" disabled="@(_busy || _compiler == null)"><span aria-hidden="true">▷</span> Compile & optimize <kbd>Ctrl ↵</kbd></button>
+        </div>
+
+        <div class="workspace" aria-busy="@(_busy ? "true" : "false")" @ref="_workspaceElement">
+            <section class="source-panel panel" aria-label="C# source">
+                <div class="panel-heading">
+                    <span class="file-label"><span class="language-badge">C#</span> Snippet.cs</span>
+                </div>
+                <div class="editor-host source-editor" @ref="_sourceElement"></div>
+                <div class="panel-footer"><span class="status-dot"></span> Your code stays in this browser <span class="source-state">@(_dirty ? "Modified" : "")</span></div>
+            </section>
+
+            <div class="workspace-splitter" role="separator" tabindex="0" aria-label="Resize source and results" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="65" aria-valuenow="32" @ref="_splitterElement"><span></span></div>
+
+            <section class="output-panel panel" aria-label="Compiler output">
+                @if (!IsCSharpView) {
+                <div class="output-toolbar">
+                    <div class="method-picker">
+                        <label for="method">METHOD</label>
+                        <select id="method" value="@_methodIndex" @onchange="ChangeMethodAsync" disabled="@(_busy || _output?.Methods.Count is not > 0)">
+                            @if (_output?.Methods.Count is not > 0) { <option value="-1">Compile to explore methods</option> }
+                            @if (_output != null) {
+                                @for (int i = 0; i < _output.Methods.Count; i++) {
+                                    <option value="@i">@_output.Methods[i].Signature</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    @if (SelectedMethod is { } selected) {
+                        <span class="method-status @(selected.Error == null ? "" : "failed")">@selected.Status</span>
+                    }
+                </div>
+                }
+
+                <div class="view-tabs" role="tablist" aria-label="Output view">
+                    <button id="passes-tab" role="tab" aria-selected="@(IsPassView ? "true" : "false")" aria-controls="output-view" class="@(IsPassView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.Passes)" disabled="@_busy">Pass transformations <span class="tab-count">@(SelectedMethod?.Passes.Count ?? 0)</span></button>
+                    <button id="il-tab" role="tab" aria-selected="@(IsILView ? "true" : "false")" aria-controls="output-view" class="@(IsILView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.IL)" disabled="@_busy">Generated IL</button>
+                    <button id="csharp-tab" role="tab" aria-selected="@(IsCSharpView ? "true" : "false")" aria-controls="output-view" class="@(IsCSharpView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.CSharp)" disabled="@_busy">ILSpy C#</button>
+                    @if (!ShowGraphs) {
+                        <label class="split-toggle"><input type="checkbox" @bind="_splitView" @bind:after="RenderViewAsync" disabled="@_busy" /> Split view</label>
+                    }
+                </div>
+
+                @if (_dirty && _output != null) {
+                    <div class="notice">Source or options changed. Compile again to update these results.</div>
+                }
+                @if (!IsCSharpView && SelectedMethod?.Error is { } methodError) {
+                    <div class="error-notice" role="alert">@methodError <span>The original IL is retained for this method.</span></div>
+                }
+
+                @if (IsPassView) {
+                    <div class="pass-display"><label for="pass-display">View</label><select id="pass-display" @bind="_passDisplay" @bind:after="RenderViewAsync" disabled="@_busy"><option value="@PassDisplay.IR">IR diff</option><option value="@PassDisplay.Graphviz">Graphviz CFG</option></select></div>
+                }
+
+                <div id="output-view" class="inspector @(!IsPassView ? "il-view" : "")" role="tabpanel" aria-labelledby="@(IsCSharpView ? "csharp-tab" : IsILView ? "il-tab" : "passes-tab")">
+                    <nav class="pass-sidebar" aria-label="Optimization passes" hidden="@(!IsPassView)">
+                        <div class="pass-filter"><label><input type="checkbox" @bind="_changedOnly" @bind:after="FilterPassesAsync" disabled="@_busy" /> Changed only</label></div>
+                        <div class="pass-list">
+                            @foreach (var pass in VisiblePasses) {
+                                <button class="pass-item @(pass.Number - 1 == _passIndex ? "selected" : "")" aria-current="@(pass.Number - 1 == _passIndex ? "step" : null)" @onclick="() => SelectPassAsync(pass.Number - 1)" disabled="@_busy">
+                                    <span class="pass-number">@pass.Number.ToString("00")</span>
+                                    <span class="pass-name">@pass.Name</span>
+                                    <span class="pass-dot @(pass.Error != null ? "error" : pass.Changed ? "changed" : "")" title="@(pass.Error != null ? "Failed" : pass.Changed ? "Changed" : "Unchanged")"></span>
+                                </button>
+                            }
+                            @if (SelectedMethod != null && !VisiblePasses.Any()) {
+                                <p class="sidebar-empty">@(_changedOnly ? "No changed passes." : "No passes ran for this method.")</p>
+                            }
+                        </div>
+                        <div class="pass-legend"><span class="pass-dot changed"></span> Changed <span class="pass-dot"></span> Unchanged</div>
+                    </nav>
+
+                    <div class="diff-panel">
+                        <div class="diff-heading" hidden="@ShowGraphs">
+                            <span><span class="diff-minus">−</span> @(IsCSharpView ? "Original assembly" : IsILView ? "Roslyn IL" : "Before pass")</span>
+                            <span><span class="diff-plus">+</span> @(IsCSharpView ? "Optimized assembly" : IsILView ? (SelectedMethod?.Error != null ? "Retained IL" : "Cilica IL") : "After pass")</span>
+                        </div>
+                        <div class="diff-editor-container">
+                            <div class="editor-host diff-editor" @ref="_diffElement" hidden="@ShowGraphs"></div>
+                            <div class="graph-grid" hidden="@(!ShowGraphs)">
+                                <section class="graph-panel">
+                                    <div class="graph-heading"><span>Before pass</span><output aria-label="Before graph zoom"></output><button title="Zoom out" aria-label="Zoom out before graph" @onclick="() => ZoomGraphAsync(true, 0.8)">−</button><button title="Fit graph" aria-label="Fit before graph" @onclick="() => FitGraphAsync(true)">Fit</button><button title="Zoom in" aria-label="Zoom in before graph" @onclick="() => ZoomGraphAsync(true, 1.25)">+</button></div>
+                                    <div class="graph-canvas" aria-label="Control-flow graph before pass" @ref="_beforeGraphElement"></div>
+                                </section>
+                                <section class="graph-panel">
+                                    <div class="graph-heading"><span>After pass</span><output aria-label="After graph zoom"></output><button title="Zoom out" aria-label="Zoom out after graph" @onclick="() => ZoomGraphAsync(false, 0.8)">−</button><button title="Fit graph" aria-label="Fit after graph" @onclick="() => FitGraphAsync(false)">Fit</button><button title="Zoom in" aria-label="Zoom in after graph" @onclick="() => ZoomGraphAsync(false, 1.25)">+</button></div>
+                                    <div class="graph-canvas" aria-label="Control-flow graph after pass" @ref="_afterGraphElement"></div>
+                                </section>
+                            </div>
+                            @if (_busy || OutputMissing || _viewError != null) {
+                                <div class="empty-state" role="status">
+                                    <span class="empty-symbol">@(_busy ? "◌" : "{ }")</span>
+                                    <strong>@(_busy ? _status : _viewError != null ? "Unable to display this view" : _error != null ? "Unable to compile" : _output?.Diagnostics.Any(diagnostic => diagnostic.Severity == "Error") == true ? "Check your C# source" : SelectedMethod == null ? "Your compilation, step by step" : "No transformations to display")</strong>
+                                    <span>@(_busy ? "Running locally in WebAssembly." : _viewError ?? _error ?? "Compile a snippet, choose a method, and inspect its transformation.")</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="diff-footer">
+                            @if (IsCSharpView) {
+                                <span>ILSpy · decompiled C# · whole assembly</span>
+                            } else if (IsILView) {
+                                <span>Managed IL · before and after the full pipeline</span>
+                            } else if (SelectedPass is { } current) {
+                                <span><strong>@current.Name</strong> · @(current.Error != null ? "Failed" : current.Changed ? "Changed" : "Unchanged")</span>
+                                <span>@current.Milliseconds.ToString("0.00") ms</span>
+                            } else {
+                                <span>Choose a pass to inspect its IR.</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        @if (_error != null || _output?.Diagnostics.Count > 0 || _output?.Messages.Count > 0) {
+            <details class="diagnostics" open>
+                <summary>Diagnostics <span class="tab-count">@((_output?.Diagnostics.Count ?? 0) + (_output?.Messages.Count ?? 0) + (_error == null ? 0 : 1))</span></summary>
+                @if (_error != null) { <p class="diagnostic-error">@_error</p> }
+                @if (_output != null) {
+                    @foreach (var diagnostic in _output.Diagnostics) {
+                        <button class="diagnostic @(diagnostic.Severity == "Error" ? "diagnostic-error" : "")" @onclick="() => RevealDiagnosticAsync(diagnostic)"><span>@diagnostic.Id</span><span>(@diagnostic.Line,@diagnostic.Column)</span><span>@diagnostic.Message</span></button>
+                    }
+                    @foreach (var message in _output.Messages) { <pre>@message</pre> }
+                }
+            </details>
+        }
+
+        <footer class="app-footer">
+            <span class="run-summary" role="status">@RunSummary</span>
+            <span>Powered by <a href="https://www.nuget.org/packages/Cilica.Core" target="_blank" rel="noopener noreferrer">Cilica</a></span>
+        </footer>
+    </main>
+</div>

@@ -1,0 +1,10 @@
+Viz.js 3.31.0
+Source: https://github.com/mdaines/viz-js/tree/c8ce050d28eb0dc1ed1629ea32ab7f3dc117db0f
+Distribution: https://registry.npmjs.org/@viz-js/viz/-/viz-3.31.0.tgz (package/dist/viz.js)
+License: MIT; see LICENSE.txt.
+
+The distribution includes Graphviz 16.1.0 and Expat 2.8.5 compiled to WebAssembly.
+Graphviz source: https://gitlab.com/api/v4/projects/4207231/packages/generic/graphviz-releases/16.1.0/graphviz-16.1.0.tar.gz
+Graphviz license: Eclipse Public License; see GRAPHVIZ-LICENSE.txt.
+Expat source: https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.gz
+Expat license: MIT; see EXPAT-LICENSE.txt.

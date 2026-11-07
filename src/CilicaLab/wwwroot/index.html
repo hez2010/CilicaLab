@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Explore Cilica's .NET optimizer. Compile C#, inspect every method's pass transformations, and compare generated IL in your browser." />
+    <meta name="theme-color" content="#101419" />
+    <base href="./" />
+    <title>Cilica Lab</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+    <div id="app">
+        <div class="boot-screen">
+            <img src="favicon.svg" width="48" height="48" alt="" />
+            <h1>Cilica <span>Lab</span></h1>
+            <p>Loading your browser's compiler workspace…</p>
+            <progress class="boot-progress" aria-label="Loading WebAssembly"></progress>
+        </div>
+    </div>
+    <div id="blazor-error-ui" role="alert">The app encountered an error. <a href="./">Reload the lab</a><button class="dismiss" aria-label="Dismiss error">×</button></div>
+    <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/loader.js"></script>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>
