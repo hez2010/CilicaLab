@@ -5,40 +5,80 @@
 <div class="lab-shell">
     <header class="app-header">
         <a class="brand" href="./" aria-label="Cilica Lab home">
-            <svg width="30" height="32" viewBox="0 0 30 32" fill="none" aria-hidden="true">
-                <path d="M15 2 28 9.5v13L15 30 2 22.5v-13L15 2Z" stroke="currentColor" stroke-width="1.5" />
-                <path d="m15 9 7 4v7l-7 4-7-4v-7l7-4Z" fill="currentColor" />
+            <svg class="brand-mark" width="28" height="30" viewBox="0 0 30 32" fill="none" aria-hidden="true">
+                <defs>
+                    <linearGradient id="brand-gradient" x1="2" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
+                        <stop style="stop-color: var(--brand-from)" />
+                        <stop offset="1" style="stop-color: var(--brand-to)" />
+                    </linearGradient>
+                </defs>
+                <path d="M15 2 28 9.5v13L15 30 2 22.5v-13L15 2Z" stroke="url(#brand-gradient)" stroke-width="1.6" />
+                <path d="m15 9 7 4v7l-7 4-7-4v-7l7-4Z" fill="url(#brand-gradient)" />
             </svg>
             <span>Cilica <span class="brand-light">Lab</span></span>
             <span class="version-badge">@($"v{CilicaVersion}")</span>
         </a>
-        <a class="repository-link" href="https://github.com/hez2010/Cilica" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+        <span class="brand-tagline">Inspect every pass of the Cilica .NET optimizer</span>
+        <div class="header-actions">
+            <div class="theme-switch" role="radiogroup" aria-label="Color theme">
+                <label title="Match system theme">
+                    <input type="radio" name="theme" checked="@(_theme == "system")" @onchange="@(() => ChangeThemeAsync("system"))" />
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8m-4-4v4" /></svg>
+                    <span class="visually-hidden">System</span>
+                </label>
+                <label title="Light theme">
+                    <input type="radio" name="theme" checked="@(_theme == "light")" @onchange="@(() => ChangeThemeAsync("light"))" />
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2m0 15v2M4.6 4.6 6 6m12 12 1.4 1.4M2.5 12h2m15 0h2M4.6 19.4 6 18M18 6l1.4-1.4" /></svg>
+                    <span class="visually-hidden">Light</span>
+                </label>
+                <label title="Dark theme">
+                    <input type="radio" name="theme" checked="@(_theme == "dark")" @onchange="@(() => ChangeThemeAsync("dark"))" />
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
+                    <span class="visually-hidden">Dark</span>
+                </label>
+            </div>
+            <a class="repository-link" href="https://github.com/hez2010/Cilica" target="_blank" rel="noopener noreferrer" title="Cilica on GitHub">
+                <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg>
+                <span>GitHub</span>
+            </a>
+        </div>
     </header>
 
     <main>
         <div class="toolbar">
             <div class="sample-picker">
-                <label for="sample">EXAMPLE</label>
+                <label for="sample">Example</label>
                 <select id="sample" value="@_sampleId" @onchange="ChangeSampleAsync" disabled="@_busy">
                     @if (_sampleId == "custom") { <option value="custom">Custom code</option> }
                     @foreach (var sample in Samples.All) { <option value="@sample.Id">@sample.Name</option> }
                 </select>
             </div>
             <details class="settings">
-                <summary>Options <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
+                <summary class="button secondary">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" /><circle cx="15" cy="7" r="2.2" /><circle cx="9" cy="17" r="2.2" /></svg>
+                    Options
+                    <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                </summary>
                 <div class="settings-panel">
-                    <label><input type="checkbox" @bind="_release" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Roslyn Release optimization</label>
-                    <label><input type="checkbox" @bind="_inlining" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Method inlining</label>
-                    <label><input type="checkbox" @bind="_crossAssembly" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Cross-assembly optimization</label>
+                    <p class="settings-title">Compiler options</p>
+                    <label><span>Roslyn Release optimization</span><input class="switch" type="checkbox" role="switch" @bind="_release" @bind:after="OptionsChangedAsync" disabled="@_busy" /></label>
+                    <label><span>Method inlining</span><input class="switch" type="checkbox" role="switch" @bind="_inlining" @bind:after="OptionsChangedAsync" disabled="@_busy" /></label>
+                    <label><span>Cross-assembly optimization</span><input class="switch" type="checkbox" role="switch" @bind="_crossAssembly" @bind:after="OptionsChangedAsync" disabled="@_busy" /></label>
                 </div>
             </details>
             <span class="toolbar-space"></span>
             <button class="button secondary" @onclick="ShareAsync" disabled="@(_busy || _editor == null || _sharing)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2-2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 2)" /></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2-2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 2)" /></svg>
                 @(_sharing ? "Creating link…" : "Share")
             </button>
-            <button class="button secondary download-button" @onclick="DownloadAssemblyAsync" disabled="@(_busy || _dirty || _output?.Assembly == null)"><span aria-hidden="true">↓</span> Download DLL</button>
-            <button class="button primary" @onclick="CompileAsync" disabled="@(_busy || _compiler == null)"><span aria-hidden="true">▷</span> Compile & optimize <kbd>Ctrl ↵</kbd></button>
+            <button class="button secondary download-button" @onclick="DownloadAssemblyAsync" disabled="@(_busy || _dirty || _output?.Assembly == null)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14" /></svg>
+                Download DLL
+            </button>
+            <button class="button primary" @onclick="CompileAsync" disabled="@(_busy || _compiler == null)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.8v14.4a1 1 0 0 0 1.52.85l11.5-7.2a1 1 0 0 0 0-1.7L8.52 3.95A1 1 0 0 0 7 4.8Z" /></svg>
+                Compile & optimize <kbd>Ctrl ↵</kbd>
+            </button>
         </div>
 
         @if (_shareError != null) {
@@ -49,9 +89,10 @@
             <section class="source-panel panel" aria-label="C# source">
                 <div class="panel-heading">
                     <span class="file-label"><span class="language-badge">C#</span> Code Editor</span>
+                    @if (_dirty) { <span class="source-state">Modified</span> }
                 </div>
                 <div class="editor-host source-editor" @ref="_sourceElement"></div>
-                <div class="panel-footer"><span class="status-dot"></span> Your code stays in this browser <span class="source-state">@(_dirty ? "Modified" : "")</span></div>
+                <div class="panel-footer"><span class="status-dot"></span> Your code stays in this browser</div>
             </section>
 
             <div class="workspace-splitter" role="separator" tabindex="0" aria-label="Resize source and results" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="65" aria-valuenow="32" @ref="_splitterElement"><span></span></div>
@@ -62,7 +103,7 @@
                     <button id="il-tab" role="tab" aria-selected="@(IsILView ? "true" : "false")" aria-controls="output-view" class="@(IsILView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.IL)" disabled="@_busy">Generated IL</button>
                     <button id="csharp-tab" role="tab" aria-selected="@(IsCSharpView ? "true" : "false")" aria-controls="output-view" class="@(IsCSharpView ? "active" : "")" @onclick="() => ChangeViewAsync(OutputView.CSharp)" disabled="@_busy">ILSpy C#</button>
                     @if (!ShowGraphs) {
-                        <label class="split-toggle"><input type="checkbox" @bind="_splitView" @bind:after="RenderViewAsync" disabled="@_busy" /> Split view</label>
+                        <label class="split-toggle" title="Split view"><input class="switch" type="checkbox" role="switch" @bind="_splitView" @bind:after="RenderViewAsync" disabled="@_busy" /> <span class="split-label">Split view</span></label>
                     }
                 </div>
 
@@ -70,7 +111,7 @@
                     @if (!IsCSharpView) {
                         <div class="output-toolbar">
                             <div class="method-picker">
-                                <label for="method">METHOD</label>
+                                <label for="method">Method</label>
                                 <select id="method" value="@_methodIndex" @onchange="ChangeMethodAsync" disabled="@(_busy || _output?.Methods.Count is not > 0)">
                                     @if (_output?.Methods.Count is not > 0) { <option value="-1">Compile to explore methods</option> }
                                     @if (_output != null) {
@@ -83,6 +124,12 @@
                             @if (SelectedMethod is { } selected) {
                                 <span class="method-status @(selected.Error == null ? "" : "failed")">@selected.Status</span>
                             }
+                            @if (IsPassView) {
+                                <div class="segmented" role="radiogroup" aria-label="Pass view">
+                                    <label><input type="radio" name="pass-display" checked="@(_passDisplay == PassDisplay.IR)" @onchange="@(() => ChangePassDisplayAsync(PassDisplay.IR))" disabled="@_busy" /><span>IR diff</span></label>
+                                    <label><input type="radio" name="pass-display" checked="@(_passDisplay == PassDisplay.Graphviz)" @onchange="@(() => ChangePassDisplayAsync(PassDisplay.Graphviz))" disabled="@_busy" /><span>Graphviz CFG</span></label>
+                                </div>
+                            }
                         </div>
                     }
 
@@ -93,13 +140,9 @@
                         <div class="error-notice" role="alert">@methodError <span>The original IL is retained for this method.</span></div>
                     }
 
-                    @if (IsPassView) {
-                        <div class="pass-display"><label for="pass-display">View</label><select id="pass-display" @bind="_passDisplay" @bind:after="RenderViewAsync" disabled="@_busy"><option value="@PassDisplay.IR">IR diff</option><option value="@PassDisplay.Graphviz">Graphviz CFG</option></select></div>
-                    }
-
                     <div class="inspector @(!IsPassView ? "il-view" : "")">
                         <nav class="pass-sidebar" aria-label="Optimization passes" hidden="@(!IsPassView)">
-                            <div class="pass-filter"><label><input type="checkbox" @bind="_changedOnly" @bind:after="FilterPassesAsync" disabled="@_busy" /> Changed only</label></div>
+                            <div class="pass-filter"><label><input class="switch" type="checkbox" role="switch" @bind="_changedOnly" @bind:after="FilterPassesAsync" disabled="@_busy" /> Changed only</label></div>
                             <div class="pass-list">
                                 @foreach (var pass in VisiblePasses) {
                                     <button class="pass-item @(pass.Number - 1 == _passIndex ? "selected" : "")" aria-current="@(pass.Number - 1 == _passIndex ? "step" : null)" @onclick="() => SelectPassAsync(pass.Number - 1)" disabled="@_busy">
@@ -134,7 +177,11 @@
                                 </div>
                                 @if (_busy || OutputMissing || _viewError != null) {
                                     <div class="empty-state" role="status">
-                                        <span class="empty-symbol">@(_busy ? "◌" : "{ }")</span>
+                                        @if (_busy) {
+                                            <span class="spinner" aria-hidden="true"></span>
+                                        } else {
+                                            <span class="empty-symbol" aria-hidden="true">{ }</span>
+                                        }
                                         <strong>@(_busy ? _status : _viewError != null ? "Unable to display this view" : _error != null ? "Unable to compile" : _output?.Diagnostics.Any(diagnostic => diagnostic.Severity == "Error") == true ? "Check your C# source" : SelectedMethod == null ? "Your compilation, step by step" : "No transformations to display")</strong>
                                         <span>@(_busy ? "Running locally in WebAssembly." : _viewError ?? _error ?? "Compile a snippet, choose a method, and inspect its transformation.")</span>
                                     </div>
@@ -166,7 +213,7 @@
 </div>
 
 <dialog class="share-dialog" aria-labelledby="share-title" @ref="_shareDialogElement">
-    <div class="share-heading"><h2 id="share-title">Share snippet</h2><button aria-label="Close share dialog" @onclick="CloseShareDialogAsync">×</button></div>
+    <div class="dialog-heading"><h2 id="share-title">Share snippet</h2><button aria-label="Close share dialog" @onclick="CloseShareDialogAsync">×</button></div>
     <p>Source code and compiler options are included in this link.</p>
     <input class="share-url" aria-label="Share link" value="@_shareUrl" readonly spellcheck="false" @ref="_shareInputElement" />
     <div class="share-actions"><span role="status">@_shareMessage</span><button class="button primary" @onclick="CopyShareLinkAsync">Copy link</button></div>

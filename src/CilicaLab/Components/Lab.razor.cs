@@ -35,6 +35,7 @@ public partial class Lab
     private bool _splitView = true, _release = true, _inlining = true, _crossAssembly = true;
     private OutputView _view;
     private PassDisplay _passDisplay;
+    private string _theme = "system";
 
     private enum OutputView { Passes, IL, CSharp }
     private enum PassDisplay { IR, Graphviz }
@@ -51,6 +52,11 @@ public partial class Lab
     private IEnumerable<PassSnapshot> VisiblePasses => SelectedMethod?.Passes.Where(pass => !_changedOnly || pass.Changed || pass.Error != null) ?? [];
     private string RunSummary => _busy ? _status : _output == null ? "Ready when you are." :
         $"{_output.Methods.Count} methods · {_output.Methods.Sum(method => method.ChangedPasses)} changed passes · {_output.Milliseconds:0} ms";
+
+    protected override void OnInitialized()
+    {
+        if (JS is IJSInProcessRuntime runtime) _theme = runtime.Invoke<string>("cilicaLabTheme.getPreference");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -193,6 +199,18 @@ public partial class Lab
     {
         _view = view;
         await RenderViewAsync();
+    }
+
+    private async Task ChangePassDisplayAsync(PassDisplay display)
+    {
+        _passDisplay = display;
+        await RenderViewAsync();
+    }
+
+    private async Task ChangeThemeAsync(string theme)
+    {
+        _theme = theme;
+        await JS.InvokeVoidAsync("cilicaLabTheme.setPreference", theme);
     }
 
     private async Task RenderViewAsync()

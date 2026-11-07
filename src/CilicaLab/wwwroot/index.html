@@ -4,9 +4,41 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Explore Cilica's .NET optimizer. Compile C#, inspect every method's pass transformations, and compare generated IL in your browser." />
-    <meta name="theme-color" content="#101419" />
+    <meta name="theme-color" content="#0b0e13" />
     <base href="./" />
     <title>Cilica Lab</title>
+    <script>
+        (() => {
+            const key = "cilicalab.theme";
+            const root = document.documentElement;
+            const media = matchMedia("(prefers-color-scheme: light)");
+            const valid = value => value === "system" || value === "light" || value === "dark";
+            let preference = "system";
+            try { preference = localStorage.getItem(key) ?? preference; } catch { /* Storage can be disabled by the browser. */ }
+            if (!valid(preference)) preference = "system";
+            function apply() {
+                const theme = preference === "system" ? (media.matches ? "light" : "dark") : preference;
+                if (root.dataset.theme === theme) return;
+                root.dataset.theme = theme;
+                document.querySelector('meta[name="theme-color"]').content = theme === "light" ? "#f3f5f8" : "#0b0e13";
+                document.dispatchEvent(new CustomEvent("cilicalab:themechange", { detail: theme }));
+            }
+            media.addEventListener("change", apply);
+            window.cilicaLabTheme = {
+                getPreference: () => preference,
+                setPreference(value) {
+                    if (!valid(value)) return;
+                    preference = value;
+                    try {
+                        if (value === "system") localStorage.removeItem(key);
+                        else localStorage.setItem(key, value);
+                    } catch { /* Storage is optional. */ }
+                    apply();
+                }
+            };
+            apply();
+        })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="preload" id="webassembly" />
@@ -15,10 +47,10 @@
 <body>
     <div id="app">
         <div class="boot-screen">
-            <img src="favicon.svg" width="48" height="48" alt="" />
+            <img src="favicon.svg" width="52" height="52" alt="" />
             <h1>Cilica <span>Lab</span></h1>
             <p>Loading your browser's compiler workspace…</p>
-            <progress class="boot-progress" aria-label="Loading WebAssembly"></progress>
+            <div class="boot-progress" role="progressbar" aria-label="Loading WebAssembly"><span></span></div>
         </div>
     </div>
     <div id="blazor-error-ui" role="alert">The app encountered an error. <a href="./">Reload the lab</a><button class="dismiss" aria-label="Dismiss error">×</button></div>

@@ -17,22 +17,47 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
     require.config({ paths: { vs: base } });
     await new Promise((resolve, reject) => require(["vs/editor/editor.main"], resolve, reject));
 
-    monaco.editor.defineTheme("cilica", {
-        base: "vs-dark", inherit: true,
-        rules: [
-            { token: "keyword", foreground: "B5A1EE" },
-            { token: "number", foreground: "E4BD7D" },
-            { token: "string", foreground: "9DD6AF" },
-            { token: "comment", foreground: "71818C" },
-            { token: "type.identifier", foreground: "72CFBC" }
-        ],
+    const syntax = {
+        dark: { keyword: "C3A6FF", number: "F0C27B", string: "8FD9A8", comment: "6E7D8C", type: "5FD7C5" },
+        light: { keyword: "8250DF", number: "B35900", string: "1A7F37", comment: "6E7781", type: "0F7B6C" }
+    };
+    const rules = colors => [
+        { token: "keyword", foreground: colors.keyword },
+        { token: "number", foreground: colors.number },
+        { token: "string", foreground: colors.string },
+        { token: "comment", foreground: colors.comment, fontStyle: "italic" },
+        { token: "type.identifier", foreground: colors.type }
+    ];
+    monaco.editor.defineTheme("cilica-dark", {
+        base: "vs-dark", inherit: true, rules: rules(syntax.dark),
         colors: {
-            "editor.background": "#13191F", "editor.foreground": "#CFD8E0",
-            "editorLineNumber.foreground": "#54616D", "editorLineNumber.activeForeground": "#A5B7C5",
-            "editor.lineHighlightBackground": "#192129", "editor.selectionBackground": "#284B58",
-            "editor.inactiveSelectionBackground": "#243C49", "editorIndentGuide.background1": "#242E37",
-            "diffEditor.insertedTextBackground": "#30735845", "diffEditor.removedTextBackground": "#93454F40",
-            "diffEditor.insertedLineBackground": "#234D342A", "diffEditor.removedLineBackground": "#592D342A"
+            "editor.background": "#10141A", "editor.foreground": "#D6DEE6", "editorGutter.background": "#10141A",
+            "editorLineNumber.foreground": "#4A5562", "editorLineNumber.activeForeground": "#A9B6C3",
+            "editor.lineHighlightBackground": "#151A22", "editor.lineHighlightBorder": "#00000000",
+            "editor.selectionBackground": "#22504A", "editor.inactiveSelectionBackground": "#1C3A38",
+            "editorCursor.foreground": "#52D6B0", "editorIndentGuide.background1": "#1F2630", "editorIndentGuide.activeBackground1": "#334050",
+            "editorWidget.background": "#181E27", "editorWidget.border": "#2E3743",
+            "editorHoverWidget.background": "#181E27", "editorHoverWidget.border": "#2E3743",
+            "scrollbarSlider.background": "#3A455266", "scrollbarSlider.hoverBackground": "#4A566688", "scrollbarSlider.activeBackground": "#5A6878AA",
+            "diffEditor.insertedTextBackground": "#3FCF9A26", "diffEditor.removedTextBackground": "#F2788A24",
+            "diffEditor.insertedLineBackground": "#2FB98A16", "diffEditor.removedLineBackground": "#F2788A14",
+            "diffEditor.diagonalFill": "#2A323D99"
+        }
+    });
+    monaco.editor.defineTheme("cilica-light", {
+        base: "vs", inherit: true, rules: rules(syntax.light),
+        colors: {
+            "editor.background": "#FFFFFF", "editor.foreground": "#1F2A37", "editorGutter.background": "#FFFFFF",
+            "editorLineNumber.foreground": "#A3ADB9", "editorLineNumber.activeForeground": "#3C4857",
+            "editor.lineHighlightBackground": "#F4F7FA", "editor.lineHighlightBorder": "#00000000",
+            "editor.selectionBackground": "#C6E8DF", "editor.inactiveSelectionBackground": "#E0EFEB",
+            "editorCursor.foreground": "#087F65", "editorIndentGuide.background1": "#E8ECF1", "editorIndentGuide.activeBackground1": "#C5CED9",
+            "editorWidget.background": "#FFFFFF", "editorWidget.border": "#CDD5DF",
+            "editorHoverWidget.background": "#FFFFFF", "editorHoverWidget.border": "#CDD5DF",
+            "scrollbarSlider.background": "#8B96A533", "scrollbarSlider.hoverBackground": "#8B96A555", "scrollbarSlider.activeBackground": "#8B96A577",
+            "diffEditor.insertedTextBackground": "#1A9F5E2A", "diffEditor.removedTextBackground": "#D6455A26",
+            "diffEditor.insertedLineBackground": "#1A9F5E12", "diffEditor.removedLineBackground": "#D6455A10",
+            "diffEditor.diagonalFill": "#D5DCE4AA"
         }
     });
     for (const language of ["cil", "cilica-ir"]) {
@@ -63,8 +88,8 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
     overlays.className = "editor-overlays monaco-editor";
     document.body.append(overlays);
     const options = {
-        theme: "cilica", automaticLayout: true, fontSize: 13, lineHeight: 22,
-        fontFamily: "Cascadia Code, Cascadia Mono, Consolas, monospace",
+        theme: editorTheme(), automaticLayout: true, fontSize: 13, lineHeight: 22,
+        fontFamily: "\"Cascadia Code\", \"Cascadia Mono\", \"JetBrains Mono\", \"SF Mono\", Menlo, Consolas, monospace",
         minimap: { enabled: false }, scrollBeyondLastLine: false, padding: { top: 16, bottom: 16 },
         lineNumbersMinChars: 3, tabSize: 4, insertSpaces: true, renderLineHighlight: "line",
         bracketPairColorization: { enabled: true }, overviewRulerBorder: false,
@@ -88,7 +113,16 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
         if (!settingSource) callback.invokeMethodAsync("SourceChanged");
     });
     window.addEventListener("hashchange", restoreSharedNavigation);
+    document.addEventListener("cilicalab:themechange", applyEditorTheme);
     return { source, options: compilerOptions, shareError };
+}
+
+function editorTheme() {
+    return document.documentElement.dataset.theme === "light" ? "cilica-light" : "cilica-dark";
+}
+
+function applyEditorTheme() {
+    monaco.editor.setTheme(editorTheme());
 }
 
 function restoreSharedNavigation() {
@@ -286,6 +320,7 @@ export function download(name, bytes) {
 }
 export function dispose() {
     window.removeEventListener("hashchange", restoreSharedNavigation);
+    document.removeEventListener("cilicalab:themechange", applyEditorTheme);
     changeListener.dispose();
     sourceEditor.getModel().dispose();
     sourceEditor.dispose();
