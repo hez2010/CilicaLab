@@ -16,6 +16,7 @@ public partial class Lab
     [Inject] private HttpClient Http { get; set; } = null!;
 
     private ElementReference _sourceElement, _diffElement, _workspaceElement, _splitterElement, _beforeGraphElement, _afterGraphElement;
+    private ElementReference _shareDialogElement, _shareInputElement;
     private IJSObjectReference? _editor;
     private DotNetObjectReference<Lab>? _callback;
     private FrameworkReferences? _references;
@@ -26,6 +27,9 @@ public partial class Lab
     private string _status = "Loading compiler…";
     private string? _error;
     private string? _viewError;
+    private string? _shareError;
+    private string _shareUrl = "", _shareMessage = "";
+    private bool _sharing;
     private int _methodIndex = -1, _passIndex = -1;
     private bool _busy = true, _dirty, _changedOnly;
     private bool _splitView = true, _release = true, _inlining = true, _crossAssembly = true;
@@ -34,6 +38,8 @@ public partial class Lab
 
     private enum OutputView { Passes, IL, CSharp }
     private enum PassDisplay { IR, Graphviz }
+    private sealed record EditorState(string Source, LabOptions Options, string? ShareError);
+    private sealed record ShareLinkResult(string Url, string? Error);
     private bool IsPassView => _view == OutputView.Passes;
     private bool IsILView => _view == OutputView.IL;
     private bool IsCSharpView => _view == OutputView.CSharp;
@@ -52,8 +58,13 @@ public partial class Lab
         try {
             _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.mjs");
             _callback = DotNetObjectReference.Create(this);
-            string source = await _editor.InvokeAsync<string>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement, Samples.All[0].Source, _callback);
-            if (source != Samples.All[0].Source) _sampleId = "custom";
+            var session = await _editor.InvokeAsync<EditorState>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement,
+                Samples.All[0].Source, new LabOptions(_release, _inlining, _crossAssembly), _callback);
+            if (session.Source != Samples.All[0].Source) _sampleId = "custom";
+            _release = session.Options.Release;
+            _inlining = session.Options.EnableInlining;
+            _crossAssembly = session.Options.AllowCrossAssemblyIPO;
+            _shareError = session.ShareError;
             _status = "Loading .NET assemblies…";
             StateHasChanged();
             using var archive = new MemoryStream(await Http.GetByteArrayAsync("references/framework.zip"), writable: false);
@@ -109,7 +120,40 @@ public partial class Lab
         StateHasChanged();
     }
 
-    private void OptionsChanged() => _dirty = true;
+    private async Task OptionsChangedAsync()
+    {
+        _dirty = true;
+        await _editor!.InvokeVoidAsync("saveDraft");
+    }
+
+    private async Task ShareAsync()
+    {
+        _sharing = true;
+        _shareError = null;
+        _shareMessage = "";
+        try {
+            var editor = _editor!;
+            var result = await editor.InvokeAsync<ShareLinkResult>("createShareLink", new LabOptions(_release, _inlining, _crossAssembly));
+            if (result.Error != null) {
+                _shareError = result.Error;
+                return;
+            }
+            _shareUrl = result.Url;
+            StateHasChanged();
+            await editor.InvokeVoidAsync("nextFrame");
+            await editor.InvokeVoidAsync("openShareDialog", _shareDialogElement, _shareInputElement);
+        } finally {
+            _sharing = false;
+        }
+    }
+
+    private async Task CopyShareLinkAsync()
+    {
+        bool copied = await _editor!.InvokeAsync<bool>("copyShareLink", _shareUrl, _shareInputElement);
+        _shareMessage = copied ? "Link copied." : "Select and copy the link above.";
+    }
+
+    private async Task CloseShareDialogAsync() => await _editor!.InvokeVoidAsync("closeShareDialog", _shareDialogElement);
 
     private async Task ChangeSampleAsync(ChangeEventArgs change)
     {

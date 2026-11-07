@@ -12,7 +12,7 @@
             <span>Cilica <span class="brand-light">Lab</span></span>
             <span class="version-badge">@($"v{CilicaVersion}")</span>
         </a>
-        <a class="repository-link" href="https://github.com/hez2010/CilicaLab" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+        <a class="repository-link" href="https://github.com/hez2010/Cilica" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
     </header>
 
     <main>
@@ -27,15 +27,23 @@
             <details class="settings">
                 <summary>Options <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
                 <div class="settings-panel">
-                    <label><input type="checkbox" @bind="_release" @bind:after="OptionsChanged" disabled="@_busy" /> Roslyn Release optimization</label>
-                    <label><input type="checkbox" @bind="_inlining" @bind:after="OptionsChanged" disabled="@_busy" /> Method inlining</label>
-                    <label><input type="checkbox" @bind="_crossAssembly" @bind:after="OptionsChanged" disabled="@_busy" /> Cross-assembly optimization</label>
+                    <label><input type="checkbox" @bind="_release" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Roslyn Release optimization</label>
+                    <label><input type="checkbox" @bind="_inlining" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Method inlining</label>
+                    <label><input type="checkbox" @bind="_crossAssembly" @bind:after="OptionsChangedAsync" disabled="@_busy" /> Cross-assembly optimization</label>
                 </div>
             </details>
             <span class="toolbar-space"></span>
+            <button class="button secondary" @onclick="ShareAsync" disabled="@(_busy || _editor == null || _sharing)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2-2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 2)" /></svg>
+                @(_sharing ? "Creating link…" : "Share")
+            </button>
             <button class="button secondary download-button" @onclick="DownloadAssemblyAsync" disabled="@(_busy || _dirty || _output?.Assembly == null)"><span aria-hidden="true">↓</span> Download DLL</button>
             <button class="button primary" @onclick="CompileAsync" disabled="@(_busy || _compiler == null)"><span aria-hidden="true">▷</span> Compile & optimize <kbd>Ctrl ↵</kbd></button>
         </div>
+
+        @if (_shareError != null) {
+            <div class="share-alert" role="alert"><span>@_shareError</span><button aria-label="Dismiss share message" @onclick="() => _shareError = null">×</button></div>
+        }
 
         <div class="workspace" aria-busy="@(_busy ? "true" : "false")" @ref="_workspaceElement">
             <section class="source-panel panel" aria-label="C# source">
@@ -152,7 +160,14 @@
 
         <footer class="app-footer">
             <span class="run-summary" role="status">@RunSummary</span>
-            <span>Powered by <a href="https://www.nuget.org/packages/Cilica.Core" target="_blank" rel="noopener noreferrer">Cilica</a></span>
+            <span>Powered by <a href="https://github.com/hez2010/CilicaLab" target="_blank" rel="noopener noreferrer">CilicaLab</a></span>
         </footer>
     </main>
 </div>
+
+<dialog class="share-dialog" aria-labelledby="share-title" @ref="_shareDialogElement">
+    <div class="share-heading"><h2 id="share-title">Share snippet</h2><button aria-label="Close share dialog" @onclick="CloseShareDialogAsync">×</button></div>
+    <p>Source code and compiler options are included in this link.</p>
+    <input class="share-url" aria-label="Share link" value="@_shareUrl" readonly spellcheck="false" @ref="_shareInputElement" />
+    <div class="share-actions"><span role="status">@_shareMessage</span><button class="button primary" @onclick="CopyShareLinkAsync">Copy link</button></div>
+</dialog>

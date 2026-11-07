@@ -1,7 +1,10 @@
+import { encodeShareState, decodeShareState, ShareLinkError } from "./share-state.mjs";
+
 let sourceEditor, diffEditor, originalModel, modifiedModel, changeListener, overlays;
 let settingSource = false;
 let graphviz;
 let disposeSplitter;
+let disposeDismissal;
 const graphs = new Map();
 const graphObserver = new ResizeObserver(entries => {
     for (const { target } of entries) {
@@ -9,7 +12,7 @@ const graphObserver = new ResizeObserver(entries => {
     }
 });
 
-export async function initialize(sourceElement, diffElement, workspace, splitter, initialSource, callback) {
+export async function initialize(sourceElement, diffElement, workspace, splitter, initialSource, initialOptions, callback) {
     const base = new URL("_content/BlazorMonaco/lib/monaco-editor/min/vs", document.baseURI).href;
     require.config({ paths: { vs: base } });
     await new Promise((resolve, reject) => require(["vs/editor/editor.main"], resolve, reject));
@@ -45,6 +48,17 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
 
     let source = initialSource;
     try { source = localStorage.getItem("cilicalab.source") ?? source; } catch { /* Storage can be disabled by the browser. */ }
+    let compilerOptions = initialOptions;
+    let shareError = null;
+    try {
+        const shared = await decodeShareState(location.hash);
+        if (shared) {
+            source = shared.source;
+            compilerOptions = shared.options;
+        }
+    } catch {
+        shareError = "This share link could not be opened. Your saved code or the default example is shown.";
+    }
     overlays = document.createElement("div");
     overlays.className = "editor-overlays monaco-editor";
     document.body.append(overlays);
@@ -67,12 +81,79 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
     });
     diffEditor.setModel({ original: originalModel, modified: modifiedModel });
     disposeSplitter = initializeSplitter(workspace, splitter);
+    disposeDismissal = initializeDismissal();
     sourceEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => callback.invokeMethodAsync("CompileAsync"));
     changeListener = sourceEditor.onDidChangeModelContent(() => {
-        try { localStorage.setItem("cilicalab.source", sourceEditor.getValue()); } catch { /* Storage is optional. */ }
+        saveDraft();
         if (!settingSource) callback.invokeMethodAsync("SourceChanged");
     });
-    return source;
+    window.addEventListener("hashchange", restoreSharedNavigation);
+    return { source, options: compilerOptions, shareError };
+}
+
+function restoreSharedNavigation() {
+    location.reload();
+}
+
+function initializeDismissal() {
+    const optionsMenu = document.querySelector(".settings");
+    const dialog = document.querySelector(".share-dialog");
+    function click(event) {
+        if (!optionsMenu.contains(event.target)) optionsMenu.open = false;
+        if (dialog.open && event.target === dialog) {
+            const bounds = dialog.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+        }
+    }
+    function keydown(event) {
+        if (event.key !== "Escape" || !optionsMenu.open) return;
+        if (optionsMenu.contains(document.activeElement)) optionsMenu.querySelector("summary").focus();
+        optionsMenu.open = false;
+    }
+    document.addEventListener("click", click);
+    document.addEventListener("keydown", keydown);
+    return () => {
+        document.removeEventListener("click", click);
+        document.removeEventListener("keydown", keydown);
+    };
+}
+
+export function saveDraft() {
+    try { localStorage.setItem("cilicalab.source", sourceEditor.getValue()); } catch { /* Storage is optional. */ }
+    if (!location.hash.startsWith("#share=")) return;
+    const url = new URL(location.href);
+    url.hash = "";
+    history.replaceState(history.state, "", url);
+}
+
+export async function createShareLink(options) {
+    try {
+        const url = new URL(location.href);
+        url.hash = await encodeShareState({ source: sourceEditor.getValue(), options });
+        return { url: url.href, error: null };
+    } catch (error) {
+        return { url: "", error: error instanceof ShareLinkError ? error.message : "The share link could not be created." };
+    }
+}
+
+export function openShareDialog(dialog, input) {
+    dialog.showModal();
+    input.focus();
+    input.select();
+}
+
+export function closeShareDialog(dialog) { dialog.close(); }
+
+export async function copyShareLink(url, input) {
+    try {
+        await navigator.clipboard.writeText(url);
+        return true;
+    } catch {
+        input.focus();
+        input.select();
+        return false;
+    }
 }
 
 function initializeSplitter(workspace, splitter) {
@@ -204,6 +285,7 @@ export function download(name, bytes) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function dispose() {
+    window.removeEventListener("hashchange", restoreSharedNavigation);
     changeListener.dispose();
     sourceEditor.getModel().dispose();
     sourceEditor.dispose();
@@ -212,6 +294,7 @@ export function dispose() {
     modifiedModel.dispose();
     overlays.remove();
     disposeSplitter();
+    disposeDismissal();
     graphObserver.disconnect();
     for (const [element, state] of graphs) element.removeEventListener("wheel", state.wheel);
     graphs.clear();
