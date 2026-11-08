@@ -16,6 +16,7 @@ public partial class Lab
     [Inject] private HttpClient Http { get; set; } = null!;
 
     private ElementReference _sourceElement, _diffElement, _workspaceElement, _splitterElement, _beforeGraphElement, _afterGraphElement;
+    private ElementReference _diffPanelElement, _traceSplitterElement;
     private ElementReference _shareDialogElement, _shareInputElement;
     private IJSObjectReference? _editor;
     private DotNetObjectReference<Lab>? _callback;
@@ -33,6 +34,7 @@ public partial class Lab
     private int _methodIndex = -1, _passIndex = -1;
     private bool _busy = true, _dirty, _changedOnly;
     private bool _splitView = true, _release = true, _inlining = true, _crossAssembly = true;
+    private bool _traceOpen = true;
     private OutputView _view;
     private PassDisplay _passDisplay;
     private string _theme = "system";
@@ -66,6 +68,7 @@ public partial class Lab
             _callback = DotNetObjectReference.Create(this);
             var session = await _editor.InvokeAsync<EditorState>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement,
                 Samples.All[0].Source, new LabOptions(_release, _inlining, _crossAssembly), _callback);
+            await _editor.InvokeVoidAsync("initializeTraceSplitter", _diffPanelElement, _traceSplitterElement);
             if (session.Source != Samples.All[0].Source) _sampleId = "custom";
             _release = session.Options.Release;
             _inlining = session.Options.EnableInlining;
@@ -206,6 +209,8 @@ public partial class Lab
         _passDisplay = display;
         await RenderViewAsync();
     }
+
+    private void ToggleTrace() => _traceOpen = !_traceOpen;
 
     private async Task ChangeThemeAsync(string theme)
     {

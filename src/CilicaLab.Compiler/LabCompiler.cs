@@ -34,7 +34,7 @@ public sealed class LabCompiler(FrameworkReferences references)
         byte[] originalAssembly = image.ToArray();
         File.WriteAllBytes(inputPath, originalAssembly);
 
-        var logger = new VoidLogger();
+        var logger = new PassTraceLogger();
         using var resolver = new ModuleResolver(logger);
         resolver.AddSearchPaths([references.DirectoryPath]);
         var module = resolver.Load(inputPath);
@@ -46,7 +46,7 @@ public sealed class LabCompiler(FrameworkReferences references)
             VerifyEachPass = true
         });
         var manager = CompilationPipeline.CreateDefault(optimizer);
-        var recorder = new PassRecorder();
+        var recorder = new PassRecorder(logger);
         manager.Inspectors.Add(recorder);
         var result = manager.Run(candidates);
 

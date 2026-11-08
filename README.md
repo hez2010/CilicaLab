@@ -1,6 +1,6 @@
 # Cilica Lab
 
-A C# playground for the Cilica optimizer. Compile a snippet, inspect each method's intermediate representation before and after every Cilica pass, view its control-flow graphs, and compare the original and generated IL or decompiled C#.
+A C# playground for the Cilica optimizer. Compile a snippet, inspect each method's intermediate representation before and after every Cilica pass, read the trace log each pass records for that method, view its control-flow graphs, and compare the original and generated IL or decompiled C#.
 
 Cilica Lab runs entirely in Blazor WebAssembly. Deployment consists of static files; compilation does not use a backend. The optimizer comes from the [Cilica.Core](https://www.nuget.org/packages/Cilica.Core) NuGet package.
 
@@ -40,7 +40,7 @@ The host must serve `.wasm` as `application/wasm`, JavaScript as JavaScript, and
 ## Projects
 
 - `src/CilicaLab`: the standalone Blazor WebAssembly app and Monaco interface.
-- `src/CilicaLab.Compiler`: Roslyn compilation, Cilica pass inspection, IL formatting, and ILSpy decompilation.
+- `src/CilicaLab.Compiler`: Roslyn compilation, Cilica pass inspection and trace capture, IL formatting, and ILSpy decompilation.
 
 ## Acknowledgements
 

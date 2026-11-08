@@ -4,6 +4,7 @@ let sourceEditor, diffEditor, originalModel, modifiedModel, changeListener, over
 let settingSource = false;
 let graphviz;
 let disposeSplitter;
+let disposeTraceSplitter;
 let disposeDismissal;
 const graphs = new Map();
 const graphObserver = new ResizeObserver(entries => {
@@ -232,6 +233,48 @@ function initializeSplitter(workspace, splitter) {
     };
 }
 
+export function initializeTraceSplitter(container, splitter) {
+    const panel = splitter.parentElement;
+    let percent = 32;
+    let dragging = false;
+    function resize(value) {
+        percent = Math.max(15, Math.min(75, value));
+        container.style.setProperty("--trace-height", `${percent}%`);
+        splitter.setAttribute("aria-valuenow", Math.round(percent));
+        splitter.setAttribute("aria-valuetext", `Trace log ${Math.round(percent)} percent`);
+    }
+    function start(event) {
+        if (event.button !== 0) return;
+        dragging = true;
+        splitter.setPointerCapture(event.pointerId);
+        container.classList.add("trace-resizing");
+        event.preventDefault();
+    }
+    function move(event) {
+        if (!dragging) return;
+        resize((panel.getBoundingClientRect().bottom - event.clientY) / container.clientHeight * 100);
+    }
+    function end() { dragging = false; container.classList.remove("trace-resizing"); }
+    function key(event) {
+        const value = { ArrowUp: percent + 2, ArrowDown: percent - 2, Home: 15, End: 75 }[event.key];
+        if (value === undefined) return;
+        resize(value);
+        event.preventDefault();
+    }
+    splitter.addEventListener("pointerdown", start);
+    splitter.addEventListener("pointermove", move);
+    splitter.addEventListener("pointerup", end);
+    splitter.addEventListener("pointercancel", end);
+    splitter.addEventListener("keydown", key);
+    disposeTraceSplitter = () => {
+        splitter.removeEventListener("pointerdown", start);
+        splitter.removeEventListener("pointermove", move);
+        splitter.removeEventListener("pointerup", end);
+        splitter.removeEventListener("pointercancel", end);
+        splitter.removeEventListener("keydown", key);
+    };
+}
+
 export function getSource() { return sourceEditor.getValue(); }
 export function setSource(source) {
     settingSource = true;
@@ -329,6 +372,7 @@ export function dispose() {
     modifiedModel.dispose();
     overlays.remove();
     disposeSplitter();
+    disposeTraceSplitter?.();
     disposeDismissal();
     graphObserver.disconnect();
     for (const [element, state] of graphs) element.removeEventListener("wheel", state.wheel);

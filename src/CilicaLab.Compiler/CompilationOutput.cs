@@ -8,7 +8,21 @@ public sealed record SourceDiagnostic(string Id, string Severity, string Message
 
 public sealed record MethodSnapshot(string IR, string Graphviz);
 
-public sealed record PassSnapshot(int Number, string Name, MethodSnapshot Before, MethodSnapshot After, bool Changed, double Milliseconds, string? Error);
+/// <summary> A message logged during a pass. Scope entries name a nested operation, such as a size probe or a nested pass. </summary>
+public sealed record TraceEntry(LogLevel Level, int Depth, string Message, bool IsScope);
+
+public sealed record PassSnapshot(
+    int Number,
+    string Name,
+    MethodSnapshot Before,
+    MethodSnapshot After,
+    bool Changed,
+    double Milliseconds,
+    string? Error,
+    IReadOnlyList<TraceEntry> Trace)
+{
+    public int TraceMessages { get; } = Trace.Count(entry => !entry.IsScope);
+}
 
 public sealed record DecompiledOutput(string Original, string Optimized);
 
