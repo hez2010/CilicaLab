@@ -22,6 +22,7 @@ public partial class Lab
     private DotNetObjectReference<Lab>? _callback;
     private FrameworkReferences? _references;
     private LabCompiler? _compiler;
+    private EditorLanguageService? _languageService;
     private CompilationOutput? _output;
     private DecompiledOutput? _decompiled;
     private string _sampleId = Samples.All[0].Id;
@@ -79,6 +80,8 @@ public partial class Lab
             using var archive = new MemoryStream(await Http.GetByteArrayAsync("references/framework.zip"), writable: false);
             _references = FrameworkReferences.FromArchive(archive);
             _compiler = new LabCompiler(_references);
+            _languageService = new EditorLanguageService(_references);
+            await _editor.InvokeVoidAsync("enableLanguageServices", _callback);
             _busy = false;
             await CompileAsync();
         } catch (Exception error) {
@@ -111,7 +114,7 @@ public partial class Lab
                 _methodIndex = _output.Methods.Select((method, index) => (method, index)).MaxBy(item => item.method.ChangedPasses).index;
             }
             SelectFirstPass();
-            await editor.InvokeVoidAsync("setDiagnostics", _output.Diagnostics);
+            await editor.InvokeVoidAsync("setDiagnostics", _output.Diagnostics, source);
             await UpdateViewAsync();
         } catch (Exception error) {
             _error = error.Message;
@@ -120,6 +123,33 @@ public partial class Lab
             StateHasChanged();
         }
     }
+
+    [JSInvokable]
+    public Task<EditorCompletions?> GetCompletionsAsync(string source, int position)
+        => _languageService!.GetCompletionsAsync(source, position);
+
+    [JSInvokable]
+    public Task<string?> DescribeCompletionAsync(int sessionId, int index)
+        => _languageService!.DescribeCompletionAsync(sessionId, index);
+
+    [JSInvokable]
+    public void ReleaseCompletions(int sessionId) => _languageService!.ReleaseCompletions(sessionId);
+
+    [JSInvokable]
+    public Task<EditorHover?> GetHoverAsync(string source, int position)
+        => _languageService!.GetHoverAsync(source, position);
+
+    [JSInvokable]
+    public Task<EditorSignatureHelp?> GetSignatureHelpAsync(string source, int position)
+        => _languageService!.GetSignatureHelpAsync(source, position);
+
+    [JSInvokable]
+    public Task<IReadOnlyList<SourceDiagnostic>> GetEditorDiagnosticsAsync(string source)
+        => _languageService!.GetDiagnosticsAsync(source);
+
+    [JSInvokable]
+    public Task<IReadOnlyList<EditorSemanticToken>> GetSemanticTokensAsync(string source)
+        => _languageService!.GetSemanticTokensAsync(source);
 
     [JSInvokable]
     public void SourceChanged()
@@ -268,6 +298,7 @@ public partial class Lab
             await _editor.DisposeAsync();
         }
         _callback?.Dispose();
+        _languageService?.Dispose();
         _references?.Dispose();
     }
 }

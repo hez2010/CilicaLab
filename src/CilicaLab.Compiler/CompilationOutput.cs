@@ -1,10 +1,21 @@
 using Cilica;
 
+using Microsoft.CodeAnalysis;
+
 namespace CilicaLab.Compiler;
 
 public sealed record LabOptions(bool Release = true, bool EnableInlining = true, bool AllowCrossAssemblyIPO = true);
 
-public sealed record SourceDiagnostic(string Id, string Severity, string Message, int Line, int Column, int EndLine, int EndColumn);
+public sealed record SourceDiagnostic(string Id, string Severity, string Message, int Line, int Column, int EndLine, int EndColumn)
+{
+    internal static SourceDiagnostic FromDiagnostic(Diagnostic diagnostic)
+    {
+        var span = diagnostic.Location.GetLineSpan();
+        return new SourceDiagnostic(diagnostic.Id, diagnostic.Severity.ToString(), diagnostic.GetMessage(),
+            span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1,
+            span.EndLinePosition.Line + 1, span.EndLinePosition.Character + 1);
+    }
+}
 
 public sealed record MethodSnapshot(string IR, string Graphviz);
 

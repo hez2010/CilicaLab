@@ -60,7 +60,7 @@
     --syn-comment: #6e7d8c;
     --syn-function: #e5d08a;
     --syn-teal: #5fd7c5;
-    --syn-constant: #6fc3ff;
+    --syn-constant: #f2a7c3;
 }
 [data-theme="light"] {
     color-scheme: light;
@@ -116,13 +116,13 @@
     --code: #1f2a37;
     --syn-keyword: #8250df;
     --syn-type: #0550ae;
-    --syn-variable: #0a6a8a;
+    --syn-variable: #1d3f80;
     --syn-number: #b35900;
     --syn-string: #1a7f37;
     --syn-comment: #6e7781;
     --syn-function: #7d4e00;
     --syn-teal: #0f7b6c;
-    --syn-constant: #0550ae;
+    --syn-constant: #b0336b;
 }
 
 /* Base */
@@ -315,7 +315,7 @@ kbd { margin-left: 4px; padding: 2px 6px; border-radius: 5px; background: color-
 .graph-canvas svg text[fill="#569cd6" i], .graph-canvas svg text[fill="blue" i] { fill: var(--syn-type); }
 .graph-canvas svg text[fill="#9cdcfe" i] { fill: var(--syn-variable); }
 .graph-canvas svg text[fill="#b5cea8" i] { fill: var(--syn-number); }
-.graph-canvas svg text[fill="#ce9178" i] { fill: var(--syn-string); }
+.graph-canvas svg text[fill="#ce9178" i], .graph-canvas svg text[fill="#86c691" i] { fill: var(--syn-string); }
 .graph-canvas svg text[fill="#6a9955" i] { fill: var(--syn-comment); }
 .graph-canvas svg text[fill="#dcdcaa" i] { fill: var(--syn-function); }
 .graph-canvas svg text[fill="#4ec9b0" i] { fill: var(--syn-teal); }
