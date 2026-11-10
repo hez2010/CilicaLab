@@ -34,9 +34,10 @@ public partial class Lab
     private bool _sharing;
     private int _methodIndex = -1, _passIndex = -1;
     private bool _busy = true, _dirty, _changedOnly;
-    private bool _splitView = true, _release = true, _inlining = true, _crossAssembly = true;
+    private bool _splitView = true;
     private bool _traceOpen = true;
-    private PassPipeline? _pipeline, _defaultPipeline;
+    private LabOptions _options = new();
+    private PassPipeline? _defaultPipeline;
     private OutputView _view;
     private PassDisplay _passDisplay;
     private string _theme = "system";
@@ -49,7 +50,6 @@ public partial class Lab
     private bool IsILView => _view == OutputView.IL;
     private bool IsCSharpView => _view == OutputView.CSharp;
     private bool ShowGraphs => IsPassView && _passDisplay == PassDisplay.Graphviz;
-    private LabOptions Options => new(_release, _inlining, _crossAssembly, _pipeline);
     private bool OutputMissing => IsCSharpView ? _decompiled == null : SelectedMethod == null || IsPassView && SelectedPass == null;
 
     private MethodOutput? SelectedMethod => _output?.Methods.ElementAtOrDefault(_methodIndex);
@@ -76,7 +76,7 @@ public partial class Lab
             _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.mjs");
             _callback = DotNetObjectReference.Create(this);
             var session = await _editor.InvokeAsync<EditorState>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement,
-                Samples.All[0].Source, Options, new {
+                Samples.All[0].Source, _options, new {
                     PassIds = OptimizationPipeline.Passes.Select(pass => pass.Id),
                     DefaultPasses = _defaultPipeline.Stages.SelectMany(stage => stage.Steps).OrderBy(step => step.DefaultPass)
                         .DistinctBy(step => step.DefaultPass).Select(step => step.Pass),
@@ -84,10 +84,7 @@ public partial class Lab
                 }, _callback);
             await _editor.InvokeVoidAsync("initializeTraceSplitter", _diffPanelElement, _traceSplitterElement);
             if (session.Source != Samples.All[0].Source) _sampleId = "custom";
-            _release = session.Options.Release;
-            _inlining = session.Options.EnableInlining;
-            _crossAssembly = session.Options.AllowCrossAssemblyIPO;
-            _pipeline = session.Options.Pipeline;
+            _options = session.Options;
             _shareError = session.ShareError;
             _languageService = new EditorLanguageService(_references);
             await _editor.InvokeVoidAsync("enableLanguageServices", _callback);
@@ -116,7 +113,7 @@ public partial class Lab
             var editor = _editor!;
             string source = await editor.InvokeAsync<string>("getSource");
             await editor.InvokeVoidAsync("nextFrame");
-            _output = _compiler.Compile(source, Options);
+            _output = _compiler.Compile(source, _options);
             _dirty = false;
             _methodIndex = Array.FindIndex(_output.Methods.ToArray(), method => method.Signature == previousMethod);
             if (_methodIndex < 0 && _output.Methods.Count > 0) {
@@ -168,17 +165,14 @@ public partial class Lab
         StateHasChanged();
     }
 
-    private async Task OptionsChangedAsync()
+    private async Task OptionsChangedAsync(LabOptions options)
     {
+        _options = options;
         _dirty = true;
-        await _editor!.InvokeVoidAsync("saveDraft", Options);
+        await _editor!.InvokeVoidAsync("saveDraft", _options);
     }
 
-    private async Task PipelineChangedAsync(PassPipeline? pipeline)
-    {
-        _pipeline = pipeline;
-        await OptionsChangedAsync();
-    }
+    private Task PipelineChangedAsync(PassPipeline? pipeline) => OptionsChangedAsync(_options with { Pipeline = pipeline });
 
     private async Task OpenPipelineAsync() => await _editor!.InvokeVoidAsync("openDialog", _pipelineDialogElement);
     private async Task ClosePipelineAsync() => await _editor!.InvokeVoidAsync("closeDialog", _pipelineDialogElement);
@@ -190,7 +184,7 @@ public partial class Lab
         _shareMessage = "";
         try {
             var editor = _editor!;
-            var result = await editor.InvokeAsync<ShareLinkResult>("createShareLink", Options);
+            var result = await editor.InvokeAsync<ShareLinkResult>("createShareLink", _options);
             if (result.Error != null) {
                 _shareError = result.Error;
                 return;

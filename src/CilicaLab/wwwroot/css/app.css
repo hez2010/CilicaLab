@@ -182,10 +182,12 @@ kbd { margin-left: 4px; padding: 2px 6px; border-radius: 5px; background: color-
 .settings[open] > summary { color: var(--text); background: var(--control-hover); border-color: var(--border-hover); }
 .chevron { transition: transform .15s; flex-shrink: 0; opacity: .8; }
 .settings[open] .chevron { transform: rotate(180deg); }
-.settings-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 15; width: 300px; padding: 6px; background: var(--surface-overlay); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-overlay); }
+.settings-panel { position: absolute; top: calc(100% + 6px); left: 0; z-index: 15; width: 300px; max-height: calc(100dvh - 160px); overflow-y: auto; scrollbar-width: thin; padding: 6px; background: var(--surface-overlay); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-overlay); }
 .settings-title { margin: 6px 10px 4px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .settings-panel label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-radius: 8px; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
 .settings-panel label:hover { color: var(--text); background: var(--control-hover); }
+.settings-budget input { flex: 0 0 100px; width: 100px; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text); background: var(--control); font: 12px var(--font-mono); }
+.settings-budget input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .switch { appearance: none; position: relative; flex-shrink: 0; width: 30px; height: 18px; margin: 0; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--switch-off); cursor: pointer; transition: background-color .15s, border-color .15s; }
 .switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--switch-knob); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s, background-color .15s; }
 .switch:checked { background: var(--accent); border-color: var(--accent); }

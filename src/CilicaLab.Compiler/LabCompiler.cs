@@ -20,6 +20,7 @@ public sealed class LabCompiler(FrameworkReferences references)
 
     public CompilationOutput Compile(string source, LabOptions options)
     {
+        var settings = options.ToCompilationSettings();
         long started = Stopwatch.GetTimestamp();
         var tree = CSharpSyntaxTree.ParseText(source, SnippetCompilation.ParseOptions, path: "Snippet.cs");
         var compilation = CSharpCompilation.Create("CilicaLab.Snippet", [tree], references.Metadata,
@@ -44,11 +45,7 @@ public sealed class LabCompiler(FrameworkReferences references)
         var module = resolver.Load(inputPath);
         var candidates = PassManager.GetCandidateMethodsFromIL(module, (_, method) => method.Module == module);
         var originalIL = candidates.ToDictionary(method => method, ILFormatter.Format);
-        var optimizer = new Cilica.Compilation(module, logger, new CompilationSettings {
-            EnableInlining = options.EnableInlining,
-            AllowCrossAssemblyIPO = options.AllowCrossAssemblyIPO,
-            VerifyEachPass = true
-        });
+        var optimizer = new Cilica.Compilation(module, logger, settings);
         var manager = OptimizationPipeline.Build(optimizer, options.Pipeline);
         var recorder = new PassRecorder(logger);
         manager.Inspectors.Add(recorder);

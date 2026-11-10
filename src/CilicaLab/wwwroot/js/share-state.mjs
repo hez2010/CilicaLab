@@ -17,7 +17,7 @@ export async function encodeShareState(state) {
     return prefix + btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
-export async function decodeShareState(hash, pipelineRules) {
+export async function decodeShareState(hash, pipelineRules, defaultOptions) {
     if (!hash.startsWith("#share=")) return null;
     if (!hash.startsWith(prefix)) throw new ShareLinkError("Unsupported share link version.");
     const encoded = hash.slice(prefix.length);
@@ -53,19 +53,25 @@ export async function decodeShareState(hash, pipelineRules) {
     if (typeof state?.source !== "string") {
         throw new ShareLinkError("Invalid source in share link.");
     }
-    return { source: state.source, options: readCompilerOptions(state.options, pipelineRules) };
+    return { source: state.source, options: readCompilerOptions(state.options, pipelineRules, defaultOptions) };
 }
 
-export function readCompilerOptions(options, pipelineRules) {
+export function readCompilerOptions(options, pipelineRules, defaultOptions) {
     if (!["release", "enableInlining", "allowCrossAssemblyIPO"].every(option => typeof options?.[option] === "boolean")) {
         throw new ShareLinkError("Invalid compiler options.");
     }
-    return {
-        release: options.release,
-        enableInlining: options.enableInlining,
-        allowCrossAssemblyIPO: options.allowCrossAssemblyIPO,
-        pipeline: options.pipeline == null ? null : readPipeline(options.pipeline, pipelineRules)
-    };
+    const result = {};
+    for (const [key, fallback] of Object.entries(defaultOptions)) {
+        if (key === "pipeline") continue;
+        const value = options[key] === undefined ? fallback : options[key];
+        if (typeof value !== typeof fallback || typeof value === "number" &&
+            (!Number.isInteger(value) || value < 0 || value > 2147483647)) {
+            throw new ShareLinkError(`Invalid compiler option: ${key}.`);
+        }
+        result[key] = value;
+    }
+    result.pipeline = options.pipeline == null ? null : readPipeline(options.pipeline, pipelineRules);
+    return result;
 }
 
 function readPipeline(pipeline, rules) {

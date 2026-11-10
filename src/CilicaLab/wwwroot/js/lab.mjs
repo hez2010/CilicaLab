@@ -38,11 +38,11 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
     compilerOptions = initialOptions;
     try {
         const saved = localStorage.getItem("cilicalab.options");
-        if (saved) compilerOptions = readCompilerOptions(JSON.parse(saved), pipelineRules);
+        if (saved) compilerOptions = readCompilerOptions(JSON.parse(saved), pipelineRules, initialOptions);
     } catch { /* Unavailable storage or an invalid draft uses the initial options. */ }
     let shareError = null;
     try {
-        const shared = await decodeShareState(location.hash, pipelineRules);
+        const shared = await decodeShareState(location.hash, pipelineRules, initialOptions);
         if (shared) {
             source = shared.source;
             compilerOptions = shared.options;

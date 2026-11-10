@@ -4,8 +4,6 @@ using Microsoft.CodeAnalysis;
 
 namespace CilicaLab.Compiler;
 
-public sealed record LabOptions(bool Release = true, bool EnableInlining = true, bool AllowCrossAssemblyIPO = true, PassPipeline? Pipeline = null);
-
 public sealed record SourceDiagnostic(string Id, string Severity, string Message, int Line, int Column, int EndLine, int EndColumn)
 {
     internal static SourceDiagnostic FromDiagnostic(Diagnostic diagnostic)
