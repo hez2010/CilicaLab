@@ -1,0 +1,196 @@
+<div class="pipeline-mode segmented" role="radiogroup" aria-label="Pipeline mode">
+    <label><input type="radio" name="pipeline-mode" checked="@(Value == null)" @onchange="UseDefaultAsync" disabled="@Disabled" /><span>Cilica default</span></label>
+    <label><input type="radio" name="pipeline-mode" checked="@(Value != null)" @onchange="UseCustomAsync" disabled="@Disabled" /><span>Custom pipeline</span></label>
+</div>
+
+@if (Value == null) {
+    <div class="pipeline-default">
+        <h3>Cilica's built-in optimization pipeline</h3>
+        <p>Run the optimizer's standard sequence, including inlining, loop optimizations, conditional cleanup, and repeated simplification.</p>
+        <p>Choose Custom pipeline to edit a copy of this pipeline, including its stages, repeated passes, and conditional cleanup.</p>
+    </div>
+} else {
+    <div class="pipeline-controls">
+        <label class="pipeline-stage-picker" for="pipeline-stage">Stage
+            <select id="pipeline-stage" @bind="_stageId" disabled="@Disabled">
+                @foreach (var stage in Value.Stages) {
+                    <option value="@stage.Id">@StageLabel(stage)@(!stage.RunInSequence ? " · conditional" : "")</option>
+                }
+            </select>
+        </label>
+        <div class="pipeline-global-actions">
+            <button class="button secondary pipeline-icon-button" title="Clear pipeline" aria-label="Clear pipeline" @onclick="ClearAsync" disabled="@Disabled">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg>
+            </button>
+            <button class="button secondary pipeline-icon-button" title="Reset custom pipeline to Cilica default" aria-label="Reset custom" @onclick="ResetAsync" disabled="@Disabled">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2.6 8.4M3 4v6h6" /></svg>
+            </button>
+        </div>
+    </div>
+    <div class="pipeline-columns">
+        <section class="pipeline-sequence" aria-labelledby="pipeline-sequence-title">
+            <div class="pipeline-section-heading">
+                <h3 id="pipeline-sequence-title">Execution order <span class="tab-count">@SelectedStage.Steps.Count(step => step.Enabled) enabled</span></h3>
+                <button class="pipeline-text-button" @onclick="AddStageAsync" disabled="@(Disabled || Value.Stages.Count == OptimizationPipeline.MaxStages)">Add stage</button>
+            </div>
+            <details class="pipeline-stage-settings">
+                <summary>Scheduling <span>@(SelectedStage.MaxIterations == 1 ? "Once" : $"Up to {SelectedStage.MaxIterations} times")</span><svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
+                <label for="pipeline-iterations">Run stage
+                    <input id="pipeline-iterations" type="number" min="1" max="@OptimizationPipeline.MaxIterations" step="1"
+                           @bind:get="SelectedStage.MaxIterations" @bind:set="ChangeIterationsAsync" disabled="@Disabled" />
+                    <span>times at most</span>
+                </label>
+                <span class="pipeline-stage-hint">Stops when this stage makes no changes.</span>
+                <label><input type="checkbox" checked="@SelectedStage.RunInSequence" @onchange="ToggleScheduledAsync" disabled="@Disabled" /> Run in the main sequence</label>
+                <label><input type="checkbox" checked="@SelectedStage.ApplyIndependently" @onchange="ToggleIndependentAsync" disabled="@(Disabled || !SelectedStage.RunInSequence)" /> Finish across all methods before continuing</label>
+                <label for="pipeline-continuation">After changes
+                    <select id="pipeline-continuation" value="@(SelectedStage.IfChanged ?? "")" @onchange="ChangeContinuationAsync" disabled="@Disabled">
+                        <option value="">Continue normally</option>
+                        @foreach (var stage in Value.Stages.Where(CanFollow)) {
+                            <option value="@stage.Id">Run @StageLabel(stage)</option>
+                        }
+                    </select>
+                </label>
+                @if (ConditionalCallers.Any()) {
+                    <span class="pipeline-stage-hint">Also runs after changes in @string.Join(", ", ConditionalCallers.Select(StageLabel)).</span>
+                } else if (!SelectedStage.RunInSequence) {
+                    <span class="pipeline-stage-hint">This stage is not scheduled. Select it under After changes in another stage to run it conditionally.</span>
+                }
+                <div class="pipeline-stage-actions">
+                    <button class="pipeline-text-button" title="Move stage earlier in the pipeline" aria-label="Move stage up" @onclick="() => MoveStageAsync(-1)" disabled="@(Disabled || StageIndex == 0)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" /></svg></button>
+                    <button class="pipeline-text-button" title="Move stage later in the pipeline" aria-label="Move stage down" @onclick="() => MoveStageAsync(1)" disabled="@(Disabled || StageIndex == Value.Stages.Count - 1)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m-6-6 6 6 6-6" /></svg></button>
+                    <button class="pipeline-text-button" @onclick="RemoveStageAsync" disabled="@(Disabled || Value.Stages.Count == 1)">Remove stage</button>
+                </div>
+            </details>
+            <ol class="pipeline-steps" aria-label="Custom optimization passes">
+                @for (int i = 0; i < SelectedStage.Steps.Count; i++) {
+                    int index = i;
+                    var step = SelectedStage.Steps[index];
+                    <li class="pipeline-step @(!step.Enabled ? "disabled" : "")">
+                        <span class="pass-number">@((index + 1).ToString("00"))</span>
+                        <label class="pipeline-step-label">
+                            <input class="switch" type="checkbox" role="switch" checked="@step.Enabled" @onchange="() => ToggleAsync(index)" aria-label="@($"Enable step {index + 1}: {PassName(step.Pass)}")" disabled="@Disabled" />
+                            <span title="@step.Pass">@PassName(step.Pass)</span>
+                        </label>
+                        <div class="pipeline-step-actions">
+                            <button title="Move up" aria-label="@($"Move step {index + 1} up")" @onclick="() => MoveAsync(index, -1)" disabled="@(Disabled || index == 0)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
+                            </button>
+                            <button title="Move down" aria-label="@($"Move step {index + 1} down")" @onclick="() => MoveAsync(index, 1)" disabled="@(Disabled || index == SelectedStage.Steps.Count - 1)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m-6-6 6 6 6-6" /></svg>
+                            </button>
+                            <button title="Duplicate" aria-label="@($"Duplicate step {index + 1}")" @onclick="() => DuplicateAsync(index)" disabled="@(Disabled || StepCount == OptimizationPipeline.MaxSteps)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V4H4v12h4" /></svg>
+                            </button>
+                            <button title="Remove" aria-label="@($"Remove step {index + 1}")" @onclick="() => RemoveAsync(index)" disabled="@Disabled">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" /></svg>
+                            </button>
+                        </div>
+                    </li>
+                }
+            </ol>
+            @if (SelectedStage.Steps.Count == 0) {
+                <p class="pipeline-empty">This stage has no passes. Add a pass from the catalog to begin.</p>
+            } else if (!SelectedStage.Steps.Any(step => step.Enabled)) {
+                <p class="pipeline-empty">All passes in this stage are disabled.</p>
+            }
+            @if (StepCount == OptimizationPipeline.MaxSteps) {
+                <p class="pipeline-empty" role="status">The pipeline has reached the @OptimizationPipeline.MaxSteps-step limit.</p>
+            }
+        </section>
+        <section class="pipeline-catalog" aria-labelledby="pipeline-catalog-title">
+            <div class="pipeline-section-heading"><h3 id="pipeline-catalog-title">Available passes</h3></div>
+            <div class="pipeline-catalog-list">
+                @foreach (var pass in OptimizationPipeline.Passes) {
+                    <button class="pipeline-catalog-item" @onclick="() => AddAsync(pass.Id)" disabled="@(Disabled || StepCount == OptimizationPipeline.MaxSteps)" aria-label="@($"Add {pass.Name}")">
+                        <span><strong>@pass.Name</strong>@if (pass.Description != null) { <span>@pass.Description</span> }</span>
+                        <svg class="pipeline-add" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                    </button>
+                }
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter] public PassPipeline? Value { get; set; }
+    [Parameter, EditorRequired] public PassPipeline DefaultPipeline { get; set; } = null!;
+    [Parameter] public EventCallback<PassPipeline?> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private PassPipeline? _custom;
+    private string _stageId = "";
+    private int StageIndex => Value!.Stages.ToList().FindIndex(stage => stage.Id == _stageId);
+    private PipelineStage SelectedStage => Value!.Stages[StageIndex];
+    private int StepCount => Value!.Stages.Sum(stage => stage.Steps.Count);
+    private IEnumerable<PipelineStage> ConditionalCallers => Value!.Stages.Where(stage => stage.IfChanged == _stageId);
+
+    protected override void OnParametersSet()
+    {
+        _custom ??= DefaultPipeline;
+        if (Value != null) {
+            _custom = Value;
+            if (!Value.Stages.Any(stage => stage.Id == _stageId)) _stageId = Value.Stages[0].Id;
+        }
+    }
+
+    private string StageLabel(PipelineStage stage) => $"Stage {Value!.Stages.ToList().IndexOf(stage) + 1}";
+    private static string PassName(string id) => id[(Math.Max(id.LastIndexOf('.'), id.LastIndexOf('+')) + 1)..];
+    private Task UseDefaultAsync() => ValueChanged.InvokeAsync(null);
+    private Task UseCustomAsync() => ValueChanged.InvokeAsync(_custom);
+    private Task ResetAsync()
+    {
+        _stageId = DefaultPipeline.Stages[0].Id;
+        return ValueChanged.InvokeAsync(DefaultPipeline);
+    }
+    private Task ClearAsync() => ValueChanged.InvokeAsync(new PassPipeline([new(Guid.NewGuid().ToString("N"), [])]));
+    private Task ChangeIterationsAsync(int value)
+        => EditStageAsync(stage => stage with { MaxIterations = Math.Clamp(value, 1, OptimizationPipeline.MaxIterations) });
+    private Task ToggleScheduledAsync() => EditStageAsync(stage => stage with { RunInSequence = !stage.RunInSequence });
+    private Task ToggleIndependentAsync() => EditStageAsync(stage => stage with { ApplyIndependently = !stage.ApplyIndependently });
+    private Task ChangeContinuationAsync(ChangeEventArgs change)
+        => EditStageAsync(stage => stage with { IfChanged = (string)change.Value! is { Length: > 0 } id ? id : null });
+
+    private bool CanFollow(PipelineStage stage)
+    {
+        while (true) {
+            if (stage.Id == _stageId) return false;
+            if (stage.IfChanged == null) return true;
+            stage = Value!.Stages.Single(candidate => candidate.Id == stage.IfChanged);
+        }
+    }
+
+    private Task EditStageAsync(Func<PipelineStage, PipelineStage> edit)
+        => ValueChanged.InvokeAsync(new PassPipeline(Value!.Stages.Select(stage => stage.Id == _stageId ? edit(stage) : stage).ToArray()));
+
+    private Task AddStageAsync()
+    {
+        var stage = new PipelineStage(Guid.NewGuid().ToString("N"), []);
+        _stageId = stage.Id;
+        return ValueChanged.InvokeAsync(new PassPipeline([.. Value!.Stages, stage]));
+    }
+
+    private Task RemoveStageAsync() => ValueChanged.InvokeAsync(new PassPipeline(Value!.Stages.Where(stage => stage.Id != _stageId)
+        .Select(stage => stage.IfChanged == _stageId ? stage with { IfChanged = null } : stage).ToArray()));
+
+    private Task MoveStageAsync(int offset)
+    {
+        var stages = Value!.Stages.ToArray();
+        int index = StageIndex;
+        (stages[index], stages[index + offset]) = (stages[index + offset], stages[index]);
+        return ValueChanged.InvokeAsync(new PassPipeline(stages));
+    }
+
+    private Task EditAsync(Action<List<PipelineStep>> edit)
+    {
+        var steps = SelectedStage.Steps.ToList();
+        edit(steps);
+        return EditStageAsync(stage => stage with { Steps = steps });
+    }
+
+    private Task AddAsync(string pass) => EditAsync(steps => steps.Add(new(pass)));
+    private Task RemoveAsync(int index) => EditAsync(steps => steps.RemoveAt(index));
+    private Task DuplicateAsync(int index) => EditAsync(steps => steps.Insert(index + 1, steps[index]));
+    private Task ToggleAsync(int index) => EditAsync(steps => steps[index] = steps[index] with { Enabled = !steps[index].Enabled });
+    private Task MoveAsync(int index, int offset) => EditAsync(steps => (steps[index], steps[index + offset]) = (steps[index + offset], steps[index]));
+}

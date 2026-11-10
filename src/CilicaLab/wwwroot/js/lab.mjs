@@ -1,4 +1,4 @@
-import { encodeShareState, decodeShareState, ShareLinkError } from "./share-state.mjs";
+import { encodeShareState, decodeShareState, readCompilerOptions, ShareLinkError } from "./share-state.mjs";
 import { registerCSharpLanguageServices } from "./csharp-language.mjs";
 
 let sourceEditor, diffEditor, originalModel, modifiedModel, changeListener, overlays;
@@ -8,6 +8,7 @@ let disposeSplitter;
 let disposeTraceSplitter;
 let disposeDismissal;
 let disposeLanguageServices;
+let compilerOptions;
 const graphs = new Map();
 const graphObserver = new ResizeObserver(entries => {
     for (const { target } of entries) {
@@ -15,7 +16,7 @@ const graphObserver = new ResizeObserver(entries => {
     }
 });
 
-export async function initialize(sourceElement, diffElement, workspace, splitter, initialSource, initialOptions, callback) {
+export async function initialize(sourceElement, diffElement, workspace, splitter, initialSource, initialOptions, pipelineRules, callback) {
     const base = new URL("_content/BlazorMonaco/lib/monaco-editor/min/vs", document.baseURI).href;
     require.config({ paths: { vs: base } });
     await new Promise((resolve, reject) => require(["vs/editor/editor.main"], resolve, reject));
@@ -34,10 +35,14 @@ export async function initialize(sourceElement, diffElement, workspace, splitter
 
     let source = initialSource;
     try { source = localStorage.getItem("cilicalab.source") ?? source; } catch { /* Storage can be disabled by the browser. */ }
-    let compilerOptions = initialOptions;
+    compilerOptions = initialOptions;
+    try {
+        const saved = localStorage.getItem("cilicalab.options");
+        if (saved) compilerOptions = readCompilerOptions(JSON.parse(saved), pipelineRules);
+    } catch { /* Unavailable storage or an invalid draft uses the initial options. */ }
     let shareError = null;
     try {
-        const shared = await decodeShareState(location.hash);
+        const shared = await decodeShareState(location.hash, pipelineRules);
         if (shared) {
             source = shared.source;
             compilerOptions = shared.options;
@@ -145,13 +150,15 @@ function restoreSharedNavigation() {
 
 function initializeDismissal() {
     const optionsMenu = document.querySelector(".settings");
-    const dialog = document.querySelector(".share-dialog");
+    const dialogs = document.querySelectorAll(".lab-dialog");
     function click(event) {
         if (!optionsMenu.contains(event.target)) optionsMenu.open = false;
-        if (dialog.open && event.target === dialog) {
-            const bounds = dialog.getBoundingClientRect();
-            if (event.clientX < bounds.left || event.clientX > bounds.right ||
-                event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+        for (const dialog of dialogs) {
+            if (dialog.open && event.target === dialog) {
+                const bounds = dialog.getBoundingClientRect();
+                if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                    event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+            }
         }
     }
     function keydown(event) {
@@ -167,8 +174,12 @@ function initializeDismissal() {
     };
 }
 
-export function saveDraft() {
-    try { localStorage.setItem("cilicalab.source", sourceEditor.getValue()); } catch { /* Storage is optional. */ }
+export function saveDraft(options = compilerOptions) {
+    compilerOptions = options;
+    try {
+        localStorage.setItem("cilicalab.source", sourceEditor.getValue());
+        localStorage.setItem("cilicalab.options", JSON.stringify(options));
+    } catch { /* Storage is optional. */ }
     if (!location.hash.startsWith("#share=")) return;
     const url = new URL(location.href);
     url.hash = "";
@@ -186,12 +197,13 @@ export async function createShareLink(options) {
 }
 
 export function openShareDialog(dialog, input) {
-    dialog.showModal();
+    openDialog(dialog);
     input.focus();
     input.select();
 }
 
-export function closeShareDialog(dialog) { dialog.close(); }
+export function openDialog(dialog) { dialog.showModal(); }
+export function closeDialog(dialog) { dialog.close(); }
 
 export async function copyShareLink(url, input) {
     try {

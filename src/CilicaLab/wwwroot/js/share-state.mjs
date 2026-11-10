@@ -17,7 +17,7 @@ export async function encodeShareState(state) {
     return prefix + btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
-export async function decodeShareState(hash) {
+export async function decodeShareState(hash, pipelineRules) {
     if (!hash.startsWith("#share=")) return null;
     if (!hash.startsWith(prefix)) throw new ShareLinkError("Unsupported share link version.");
     const encoded = hash.slice(prefix.length);
@@ -50,16 +50,62 @@ export async function decodeShareState(hash) {
         offset += chunk.length;
     }
     const state = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decoded));
-    if (typeof state?.source !== "string" ||
-        !["release", "enableInlining", "allowCrossAssemblyIPO"].every(option => typeof state.options?.[option] === "boolean")) {
-        throw new ShareLinkError("Invalid source or options in share link.");
+    if (typeof state?.source !== "string") {
+        throw new ShareLinkError("Invalid source in share link.");
+    }
+    return { source: state.source, options: readCompilerOptions(state.options, pipelineRules) };
+}
+
+export function readCompilerOptions(options, pipelineRules) {
+    if (!["release", "enableInlining", "allowCrossAssemblyIPO"].every(option => typeof options?.[option] === "boolean")) {
+        throw new ShareLinkError("Invalid compiler options.");
     }
     return {
-        source: state.source,
-        options: {
-            release: state.options.release,
-            enableInlining: state.options.enableInlining,
-            allowCrossAssemblyIPO: state.options.allowCrossAssemblyIPO
-        }
+        release: options.release,
+        enableInlining: options.enableInlining,
+        allowCrossAssemblyIPO: options.allowCrossAssemblyIPO,
+        pipeline: options.pipeline == null ? null : readPipeline(options.pipeline, pipelineRules)
     };
+}
+
+function readPipeline(pipeline, rules) {
+    if (!Array.isArray(pipeline.stages) || pipeline.stages.length < 1 || pipeline.stages.length > rules.maxStages) {
+        throw new ShareLinkError("Invalid optimization pipeline stages.");
+    }
+    const stages = new Map();
+    let stepCount = 0;
+    for (const stage of pipeline.stages) {
+        if (typeof stage?.id !== "string" || stage.id.length === 0 || stages.has(stage.id) || !Array.isArray(stage.steps) ||
+            (stepCount += stage.steps.length) > rules.maxSteps ||
+            !Number.isInteger(stage.maxIterations) || stage.maxIterations < 1 || stage.maxIterations > rules.maxIterations ||
+            typeof stage.runInSequence !== "boolean" || typeof stage.applyIndependently !== "boolean" ||
+            stage.ifChanged != null && typeof stage.ifChanged !== "string") {
+            throw new ShareLinkError("Invalid optimization pipeline stage.");
+        }
+        for (const step of stage.steps) {
+            if (typeof step?.pass !== "string" || typeof step.enabled !== "boolean" || (step.defaultPass == null
+                ? !rules.passIds.includes(step.pass)
+                : !Number.isInteger(step.defaultPass) || step.defaultPass < 0 || rules.defaultPasses[step.defaultPass] !== step.pass)) {
+                throw new ShareLinkError("Unknown optimization pass or default configuration.");
+            }
+        }
+        stages.set(stage.id, {
+            id: stage.id,
+            steps: stage.steps.map(step => ({ pass: step.pass, enabled: step.enabled, defaultPass: step.defaultPass ?? null })),
+            maxIterations: stage.maxIterations,
+            runInSequence: stage.runInSequence,
+            applyIndependently: stage.applyIndependently,
+            ifChanged: stage.ifChanged ?? null
+        });
+    }
+    for (const stage of stages.values()) {
+        const visited = new Set([stage.id]);
+        let next = stage.ifChanged;
+        while (next != null) {
+            if (visited.has(next) || !stages.has(next)) throw new ShareLinkError("Invalid or cyclic conditional stages.");
+            visited.add(next);
+            next = stages.get(next).ifChanged;
+        }
+    }
+    return { stages: [...stages.values()] };
 }

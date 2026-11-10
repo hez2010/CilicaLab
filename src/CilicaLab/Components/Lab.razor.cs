@@ -17,7 +17,7 @@ public partial class Lab
 
     private ElementReference _sourceElement, _diffElement, _workspaceElement, _splitterElement, _beforeGraphElement, _afterGraphElement;
     private ElementReference _diffPanelElement, _traceSplitterElement;
-    private ElementReference _shareDialogElement, _shareInputElement;
+    private ElementReference _shareDialogElement, _shareInputElement, _pipelineDialogElement;
     private IJSObjectReference? _editor;
     private DotNetObjectReference<Lab>? _callback;
     private FrameworkReferences? _references;
@@ -36,6 +36,7 @@ public partial class Lab
     private bool _busy = true, _dirty, _changedOnly;
     private bool _splitView = true, _release = true, _inlining = true, _crossAssembly = true;
     private bool _traceOpen = true;
+    private PassPipeline? _pipeline, _defaultPipeline;
     private OutputView _view;
     private PassDisplay _passDisplay;
     private string _theme = "system";
@@ -48,6 +49,7 @@ public partial class Lab
     private bool IsILView => _view == OutputView.IL;
     private bool IsCSharpView => _view == OutputView.CSharp;
     private bool ShowGraphs => IsPassView && _passDisplay == PassDisplay.Graphviz;
+    private LabOptions Options => new(_release, _inlining, _crossAssembly, _pipeline);
     private bool OutputMissing => IsCSharpView ? _decompiled == null : SelectedMethod == null || IsPassView && SelectedPass == null;
 
     private MethodOutput? SelectedMethod => _output?.Methods.ElementAtOrDefault(_methodIndex);
@@ -65,21 +67,28 @@ public partial class Lab
     {
         if (!firstRender) return;
         try {
-            _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.mjs");
-            _callback = DotNetObjectReference.Create(this);
-            var session = await _editor.InvokeAsync<EditorState>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement,
-                Samples.All[0].Source, new LabOptions(_release, _inlining, _crossAssembly), _callback);
-            await _editor.InvokeVoidAsync("initializeTraceSplitter", _diffPanelElement, _traceSplitterElement);
-            if (session.Source != Samples.All[0].Source) _sampleId = "custom";
-            _release = session.Options.Release;
-            _inlining = session.Options.EnableInlining;
-            _crossAssembly = session.Options.AllowCrossAssemblyIPO;
-            _shareError = session.ShareError;
             _status = "Loading .NET assemblies…";
             StateHasChanged();
             using var archive = new MemoryStream(await Http.GetByteArrayAsync("references/framework.zip"), writable: false);
             _references = FrameworkReferences.FromArchive(archive);
             _compiler = new LabCompiler(_references);
+            _defaultPipeline = _compiler.GetDefaultPipeline();
+            _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/lab.mjs");
+            _callback = DotNetObjectReference.Create(this);
+            var session = await _editor.InvokeAsync<EditorState>("initialize", _sourceElement, _diffElement, _workspaceElement, _splitterElement,
+                Samples.All[0].Source, Options, new {
+                    PassIds = OptimizationPipeline.Passes.Select(pass => pass.Id),
+                    DefaultPasses = _defaultPipeline.Stages.SelectMany(stage => stage.Steps).OrderBy(step => step.DefaultPass)
+                        .DistinctBy(step => step.DefaultPass).Select(step => step.Pass),
+                    OptimizationPipeline.MaxSteps, OptimizationPipeline.MaxStages, OptimizationPipeline.MaxIterations
+                }, _callback);
+            await _editor.InvokeVoidAsync("initializeTraceSplitter", _diffPanelElement, _traceSplitterElement);
+            if (session.Source != Samples.All[0].Source) _sampleId = "custom";
+            _release = session.Options.Release;
+            _inlining = session.Options.EnableInlining;
+            _crossAssembly = session.Options.AllowCrossAssemblyIPO;
+            _pipeline = session.Options.Pipeline;
+            _shareError = session.ShareError;
             _languageService = new EditorLanguageService(_references);
             await _editor.InvokeVoidAsync("enableLanguageServices", _callback);
             _busy = false;
@@ -107,7 +116,7 @@ public partial class Lab
             var editor = _editor!;
             string source = await editor.InvokeAsync<string>("getSource");
             await editor.InvokeVoidAsync("nextFrame");
-            _output = _compiler.Compile(source, new LabOptions(_release, _inlining, _crossAssembly));
+            _output = _compiler.Compile(source, Options);
             _dirty = false;
             _methodIndex = Array.FindIndex(_output.Methods.ToArray(), method => method.Signature == previousMethod);
             if (_methodIndex < 0 && _output.Methods.Count > 0) {
@@ -162,8 +171,17 @@ public partial class Lab
     private async Task OptionsChangedAsync()
     {
         _dirty = true;
-        await _editor!.InvokeVoidAsync("saveDraft");
+        await _editor!.InvokeVoidAsync("saveDraft", Options);
     }
+
+    private async Task PipelineChangedAsync(PassPipeline? pipeline)
+    {
+        _pipeline = pipeline;
+        await OptionsChangedAsync();
+    }
+
+    private async Task OpenPipelineAsync() => await _editor!.InvokeVoidAsync("openDialog", _pipelineDialogElement);
+    private async Task ClosePipelineAsync() => await _editor!.InvokeVoidAsync("closeDialog", _pipelineDialogElement);
 
     private async Task ShareAsync()
     {
@@ -172,7 +190,7 @@ public partial class Lab
         _shareMessage = "";
         try {
             var editor = _editor!;
-            var result = await editor.InvokeAsync<ShareLinkResult>("createShareLink", new LabOptions(_release, _inlining, _crossAssembly));
+            var result = await editor.InvokeAsync<ShareLinkResult>("createShareLink", Options);
             if (result.Error != null) {
                 _shareError = result.Error;
                 return;
@@ -192,7 +210,7 @@ public partial class Lab
         _shareMessage = copied ? "Link copied." : "Select and copy the link above.";
     }
 
-    private async Task CloseShareDialogAsync() => await _editor!.InvokeVoidAsync("closeShareDialog", _shareDialogElement);
+    private async Task CloseShareDialogAsync() => await _editor!.InvokeVoidAsync("closeDialog", _shareDialogElement);
 
     private async Task ChangeSampleAsync(ChangeEventArgs change)
     {

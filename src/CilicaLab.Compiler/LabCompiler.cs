@@ -10,6 +10,14 @@ namespace CilicaLab.Compiler;
 
 public sealed class LabCompiler(FrameworkReferences references)
 {
+    public PassPipeline GetDefaultPipeline()
+    {
+        using var resolver = new ModuleResolver();
+        resolver.AddSearchPaths([references.DirectoryPath]);
+        var compilation = new Cilica.Compilation(resolver.Create("CilicaLab.Pipeline"), new PassTraceLogger(), new CompilationSettings());
+        return DefaultPipelineReader.Read(CompilationPipeline.CreateDefault(compilation)).Pipeline;
+    }
+
     public CompilationOutput Compile(string source, LabOptions options)
     {
         long started = Stopwatch.GetTimestamp();
@@ -41,7 +49,7 @@ public sealed class LabCompiler(FrameworkReferences references)
             AllowCrossAssemblyIPO = options.AllowCrossAssemblyIPO,
             VerifyEachPass = true
         });
-        var manager = CompilationPipeline.CreateDefault(optimizer);
+        var manager = OptimizationPipeline.Build(optimizer, options.Pipeline);
         var recorder = new PassRecorder(logger);
         manager.Inspectors.Add(recorder);
         var result = manager.Run(candidates);
