@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Cilica.Core" Version="0.20.4-preview" />
+    <PackageReference Include="Cilica.Core" Version="0.20.5-preview" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="5.9.0" />
     <PackageReference Include="ICSharpCode.Decompiler" Version="11.2.0.10050" />
   </ItemGroup>
