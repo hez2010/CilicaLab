@@ -19,6 +19,8 @@ public static class Samples
 
                 public static int Constant() => Combine(7);
 
+                public static int CombineMasks(int value) => (value & 0x0F) | (value & 0xF0);
+
                 public static int Clamp(int value)
                 {
                     if (value < 0) return 0;
@@ -59,6 +61,57 @@ public static class Samples
 
                 public static int[] Transform(int[] values)
                     => values.Select(value => value * 3 + 1).ToArray();
+            }
+            """),
+        new("reflection", "Reflection folding", """
+            using System;
+            using System.Reflection;
+
+            public class Counter
+            {
+                public virtual int Add(int value) => value;
+            }
+
+            public class Example : Counter
+            {
+                private int increment = 0;
+
+                private int AddOne(int value)
+                {
+                    return value + increment++;
+                }
+
+                public override int Add(int value) => AddOne(value);
+
+                private static T Echo<T>(T value) => value;
+
+                public static Delegate? Get(object target)
+                    => typeof(Example)
+                        .GetMethod(nameof(AddOne), BindingFlags.NonPublic | BindingFlags.Instance)?
+                        .CreateDelegate(typeof(Func<int, int>), target);
+
+                public static Func<T, T> GetGeneric<T>()
+                    => typeof(Example)
+                        .GetMethod(nameof(Echo), BindingFlags.NonPublic | BindingFlags.Static)!
+                        .MakeGenericMethod(typeof(T))
+                        .CreateDelegate<Func<T, T>>();
+
+                public static Func<int, int> GetVirtual(Counter target)
+                    => typeof(Counter).GetMethod(nameof(Counter.Add))!
+                        .CreateDelegate<Func<int, int>>(target);
+
+                public static void Test()
+                {
+                    var obj = new Example();
+                    var callback = Get(obj);
+                    Console.WriteLine(callback is Func<int, int> add ? add(42) : 0);
+                    Console.WriteLine(obj.AddOne(42));
+                    Console.WriteLine(GetGeneric<int>()(42));
+                    Console.WriteLine(GetGeneric<string>()("hello"));
+                    Console.WriteLine(GetVirtual(obj)(42));
+                    Console.WriteLine(obj.GetType().GetField(nameof(increment),
+                        BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(obj));
+                }
             }
             """),
         new("objects", "Scalar replacement", """
